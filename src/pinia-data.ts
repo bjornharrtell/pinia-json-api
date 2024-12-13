@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed } from 'vue'
+import ky from 'ky'
 
 export interface Model {
   new (...args: any[]): Model
@@ -48,17 +49,15 @@ export interface JsonApiFetcher {
 
 class JsonApiFetcherImpl implements JsonApiFetcher {
   constructor(private endpoint: URL) {}
-  async fetchAll(type: string, options?: any): Promise<JsonApiResource[]> {
+  async fetchAll(type: string): Promise<JsonApiResource[]> {
     const url = new URL(type, this.endpoint)
-    const response = await fetch(url.toString(), options)
-    const doc = (await response.json()) as JsonApiDocument
+    const doc = await ky.get(url).json<JsonApiDocument>()
     const resources = doc.data as JsonApiResource[]
     return resources
   }
-  async fetchOne(type: string, id: string, options?: any): Promise<JsonApiResource> {
+  async fetchOne(type: string, id: string): Promise<JsonApiResource> {
     const url = new URL(`${type}/${id}`, this.endpoint)
-    const response = await fetch(url.toString(), options)
-    const doc = (await response.json()) as JsonApiDocument
+    const doc = await ky.get(url).json<JsonApiDocument>()
     const resource = doc.data as JsonApiResource
     return resource
   }
@@ -67,8 +66,7 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
     if (id) segments.push(id)
     if (name) segments.push(name)
     const url = new URL(segments.join('/'), this.endpoint)
-    const response = await fetch(url.toString())
-    const doc = (await response.json()) as JsonApiDocument
+    const doc = await ky.get(url).json<JsonApiDocument>()
     const resource = doc.data as JsonApiResource[]
     return resource
   }
