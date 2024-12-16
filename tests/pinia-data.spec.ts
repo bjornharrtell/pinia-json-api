@@ -88,6 +88,7 @@ const modelDefinitions: ModelDefinition[] = [
 ]
 
 const usePiniaDataStore = definePiniaDataStore(
+  'pinia-data',
   { endpoint: 'http://localhost:3000', modelDefinitions },
   new JsonApiFetcherMock(),
 )
