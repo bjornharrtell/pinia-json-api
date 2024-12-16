@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { ShallowRef, shallowRef } from 'vue'
-import ky from 'ky'
+import { shallowReactive, ShallowRef, shallowRef } from 'vue'
+import ky, { Options } from 'ky'
 import { pluralize } from 'inflection'
 
 export interface Model {
@@ -44,8 +44,8 @@ export interface JsonApiDocument {
 
 export interface JsonApiFetcher {
   fetchOne(type: string, id: string): Promise<JsonApiResource>
-  fetchAll(type: string): Promise<JsonApiResource[]>
-  fetchRelated(type: string, id: string, name: string): Promise<JsonApiResource[]>
+  fetchAll(type: string, fields?: Record<string,string[]>): Promise<JsonApiResource[]>
+  fetchRelated(type: string, id: string, name: string, fields?: Record<string,string[]>): Promise<JsonApiResource[]>
 }
 
 export interface ModelDefinition {
@@ -56,7 +56,7 @@ export interface ModelDefinition {
 }
 
 export interface AsyncMany<T> {
-  load: () => Promise<ShallowRef<T[]>>
+  load: (fields?: Record<string,string[]>) => Promise<ShallowRef<T[]>>
   data: ShallowRef<T[]>
 }
 
@@ -70,15 +70,21 @@ function resolvePath(...segments: string[]): string {
 }
 
 class JsonApiFetcherImpl implements JsonApiFetcher {
-  options = {
+  options: Options = {
     headers: {
       'accept': 'application/vnd.api+json'
     }
   }
   constructor(private endpoint: string) {}
-  async fetchAll(type: string): Promise<JsonApiResource[]> {
-    const url = resolvePath(this.endpoint, pluralize(type))
-    const doc = await ky.get(url, this.options).json<JsonApiDocument>()
+  async fetchAll(type: string, fields?: Record<string,string[]>): Promise<JsonApiResource[]> {
+    const url = resolvePath(this.endpoint, pluralize(type)) + '?page[size]=10'
+    const searchParams = new URLSearchParams()
+    searchParams.append('page[size]', '10')
+    const options = Object.assign({ searchParams }, this.options)
+    if (fields)
+      for (const [key, value] of Object.entries(fields))
+        searchParams.append(`fields[${pluralize(key)}]`, value.join(','))
+    const doc = await ky.get(url, options).json<JsonApiDocument>()
     const resources = doc.data as JsonApiResource[]
     return resources
   }
@@ -88,9 +94,14 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
     const resource = doc.data as JsonApiResource
     return resource
   }
-  async fetchRelated(type: string, id: string, name: string): Promise<JsonApiResource[]> {
+  async fetchRelated(type: string, id: string, name: string, fields?: Record<string,string[]>): Promise<JsonApiResource[]> {
     const url = resolvePath(this.endpoint, pluralize(type), id, name)
-    const doc = await ky.get(url, this.options).json<JsonApiDocument>()
+    const searchParams = new URLSearchParams()
+    const options = Object.assign({ searchParams }, this.options)
+    if (fields)
+      for (const [key, value] of Object.entries(fields))
+        searchParams.append(`fields[${pluralize(key)}]`, value.join(','))
+    const doc = await ky.get(url, options).json<JsonApiDocument>()
     const resource = doc.data as JsonApiResource[]
     return resource
   }
@@ -115,8 +126,8 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
 
     function useFetchRelated<T extends Model>(type: string, id: string, name: string, relType: string): AsyncMany<T> {
       let data = shallowRef<T[]>([])
-      async function load() {
-        const related = await fetcher!.fetchRelated(type, id, name)
+      async function load(fields?: Record<string,string[]>) {
+        const related = await fetcher!.fetchRelated(type, id, name, fields)
         const records = related.map((r) => internalCreateRecord<T>(relType, id, r.attributes as Partial<T>))
         data.value = records
         return data
@@ -129,8 +140,8 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
 
     function useFetchMany<T extends Model>(type: string): AsyncMany<T> {
       let data = shallowRef<T[]>([])
-      async function load() {
-        const related = await fetcher!.fetchAll(type)
+      async function load(fields?: Record<string,string[]>) {
+        const related = await fetcher!.fetchAll(type, fields)
         const records = related.map((r) => internalCreateRecord<T>(type, r.id, r.attributes as Partial<T>))
         data.value = records
         return data
@@ -152,7 +163,7 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
       const modelDefinition = modelDefinitions.get(type)
       if (!modelDefinition) throw new Error(`Model ${type} not defined`)
 
-      const record = new modelDefinition.ctor()
+      const record = shallowReactive<T>(new modelDefinition.ctor() as T)
       Object.assign(record, properties, { id })
 
       for (const [name, relType] of modelDefinition.hasMany.entries()) {
