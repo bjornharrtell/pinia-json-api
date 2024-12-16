@@ -4,10 +4,15 @@ import ky, { Options } from 'ky'
 import { pluralize } from 'inflection'
 
 export interface Model {
-  new (...args: any[]): Model
+  new (id: string): Model
   id: string
+  [key: string]: any
 }
-export class Model {}
+export class Model {
+  constructor(id: string) {
+    this.id = id
+  }
+}
 
 export interface Constructor<T> {
   new (...args: any[]): T
@@ -107,7 +112,7 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
   }
 }
 
-export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
+export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint)
 
   const modelDefinitions = new Map<string, ModelDefinition>()
@@ -119,7 +124,7 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
     records.set(modelDefinition.type, new Map<string, Model>())
   }
 
-  return defineStore('pinia-data', () => {
+  return defineStore(name, () => {
     function generateId(): string {
       return Math.random().toString(36).substr(2, 9)
     }
@@ -128,7 +133,7 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
       let data = shallowRef<T[]>([])
       async function load(fields?: Record<string,string[]>) {
         const related = await fetcher!.fetchRelated(type, id, name, fields)
-        const records = related.map((r) => internalCreateRecord<T>(relType, id, r.attributes as Partial<T>))
+        const records = related.map((r) => internalCreateRecord<T>(relType, r.id, r.attributes as Partial<T>))
         data.value = records
         return data
       }
@@ -162,21 +167,23 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
     function internalCreateRecord<T extends Model>(type: string, id: string, properties: Partial<T>) {
       const modelDefinition = modelDefinitions.get(type)
       if (!modelDefinition) throw new Error(`Model ${type} not defined`)
-
-      const record = shallowReactive<T>(new modelDefinition.ctor() as T)
-      Object.assign(record, properties, { id })
-
-      for (const [name, relType] of modelDefinition.hasMany.entries()) {
-        var relation = useFetchRelated(type, id, name, relType)
-        Object.defineProperty(record, name, {
-          get() {
-            return relation
-          }
-        })
-      }
-
       const recordMap = records.get(type)
       if (!recordMap) throw new Error(`Model ${type} not defined`)
+      let record = recordMap.get(id)
+      if (!record) {
+        record = shallowReactive<T>(new modelDefinition.ctor(id) as T)
+        for (const [name, relType] of modelDefinition.hasMany.entries()) {
+          var relation = useFetchRelated(type, id, name, relType)
+          Object.defineProperty(record, name, {
+            get() {
+              return relation
+            }
+          })
+        }
+      }
+      for (const [key, value] of Object.entries(properties))
+        if (value !== undefined)
+          record[key] = value
       recordMap.set(id, record)
       return record as T
     }
