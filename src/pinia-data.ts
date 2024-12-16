@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { ShallowRef, shallowRef } from 'vue'
 import ky from 'ky'
+import { pluralize } from 'inflection'
 
 export interface Model {
   new (...args: any[]): Model
@@ -15,7 +16,7 @@ export interface Constructor<T> {
 type InstanceOfConstructor = InstanceType<Constructor<Model>>
 
 export interface PiniaDataStoreConfig {
-  endpoint: URL
+  endpoint: string
   modelDefinitions: ModelDefinition[]
 }
 
@@ -47,36 +48,52 @@ export interface JsonApiFetcher {
   fetchRelated(type: string, id: string, name: string): Promise<JsonApiResource[]>
 }
 
-class JsonApiFetcherImpl implements JsonApiFetcher {
-  constructor(private endpoint: URL) {}
-  async fetchAll(type: string): Promise<JsonApiResource[]> {
-    const url = new URL(type, this.endpoint)
-    const doc = await ky.get(url).json<JsonApiDocument>()
-    const resources = doc.data as JsonApiResource[]
-    return resources
-  }
-  async fetchOne(type: string, id: string): Promise<JsonApiResource> {
-    const url = new URL(`${type}/${id}`, this.endpoint)
-    const doc = await ky.get(url).json<JsonApiDocument>()
-    const resource = doc.data as JsonApiResource
-    return resource
-  }
-  async fetchRelated(type: string, id: string, name: string): Promise<JsonApiResource[]> {
-    const segments = [type]
-    if (id) segments.push(id)
-    if (name) segments.push(name)
-    const url = new URL(segments.join('/'), this.endpoint)
-    const doc = await ky.get(url).json<JsonApiDocument>()
-    const resource = doc.data as JsonApiResource[]
-    return resource
-  }
-}
-
 export interface ModelDefinition {
   type: string
   ctor: Constructor<Model>
   hasMany: Map<string, string>
   belongsTo: Map<string, string>
+}
+
+export interface AsyncMany<T> {
+  load: () => Promise<ShallowRef<T[]>>
+  data: ShallowRef<T[]>
+}
+
+export interface AsyncSingle<T> {
+  load: () => Promise<ShallowRef<T>>
+  data: ShallowRef<T>
+}
+
+function resolvePath(...segments: string[]): string {
+  return new URL(segments.join('/')).href;
+}
+
+class JsonApiFetcherImpl implements JsonApiFetcher {
+  options = {
+    headers: {
+      'accept': 'application/vnd.api+json'
+    }
+  }
+  constructor(private endpoint: string) {}
+  async fetchAll(type: string): Promise<JsonApiResource[]> {
+    const url = resolvePath(this.endpoint, pluralize(type))
+    const doc = await ky.get(url, this.options).json<JsonApiDocument>()
+    const resources = doc.data as JsonApiResource[]
+    return resources
+  }
+  async fetchOne(type: string, id: string): Promise<JsonApiResource> {
+    const url = resolvePath(this.endpoint, pluralize(type), id)
+    const doc = await ky.get(url, this.options).json<JsonApiDocument>()
+    const resource = doc.data as JsonApiResource
+    return resource
+  }
+  async fetchRelated(type: string, id: string, name: string): Promise<JsonApiResource[]> {
+    const url = resolvePath(this.endpoint, pluralize(type), id, name)
+    const doc = await ky.get(url, this.options).json<JsonApiDocument>()
+    const resource = doc.data as JsonApiResource[]
+    return resource
+  }
 }
 
 export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
@@ -96,10 +113,32 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
       return Math.random().toString(36).substr(2, 9)
     }
 
-    async function getRelated<T extends Model>(type: string, id: string, name: string, relType: string): Promise<T[]> {
-      const relatedResources = await fetcher!.fetchRelated(type, id, name)
-      const newRecords = relatedResources.map((r) => internalCreateRecord<T>(relType, id, r.attributes as Partial<T>))
-      return newRecords
+    function useFetchRelated<T extends Model>(type: string, id: string, name: string, relType: string): AsyncMany<T> {
+      let data = shallowRef<T[]>([])
+      async function load() {
+        const related = await fetcher!.fetchRelated(type, id, name)
+        const records = related.map((r) => internalCreateRecord<T>(relType, id, r.attributes as Partial<T>))
+        data.value = records
+        return data
+      }
+      return {
+        load,
+        data
+      } 
+    }
+
+    function useFetchMany<T extends Model>(type: string): AsyncMany<T> {
+      let data = shallowRef<T[]>([])
+      async function load() {
+        const related = await fetcher!.fetchAll(type)
+        const records = related.map((r) => internalCreateRecord<T>(type, r.id, r.attributes as Partial<T>))
+        data.value = records
+        return data
+      }
+      return {
+        load,
+        data
+      } 
     }
 
     function createRecord<T extends Model>(type: string, properties: Partial<T> & { id?: string }): T {
@@ -117,10 +156,11 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
       Object.assign(record, properties, { id })
 
       for (const [name, relType] of modelDefinition.hasMany.entries()) {
+        var relation = useFetchRelated(type, id, name, relType)
         Object.defineProperty(record, name, {
           get() {
-            return computed(() => getRelated<T>(type, id, name, relType))
-          },
+            return relation
+          }
         })
       }
 
@@ -130,15 +170,8 @@ export function definePiniaDataStore(config: PiniaDataStoreConfig, fetcher?: Jso
       return record as T
     }
 
-    async function findAll<T extends Model>(type: string): Promise<T[]> {
-      const modelRecords = records.get(type)
-      if (!modelRecords) throw new Error(`Model with name ${type} not defined`)
-      if (modelRecords.size === 0) {
-        const resources = await fetcher!.fetchAll(type)
-        const newRecords = resources.map((r) => internalCreateRecord(type, r.id, r.attributes))
-        for (const newRecord of newRecords) modelRecords.set(newRecord.id, newRecord)
-      }
-      return Array.from(modelRecords.values()) as T[]
+    function findAll<T extends Model>(type: string): AsyncMany<T> {
+      return useFetchMany<T>(type)
     }
 
     async function findRecord<T extends Model>(type: string, id: string): Promise<T> {

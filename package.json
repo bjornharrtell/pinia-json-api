@@ -3,10 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dist/lib.js",
+  "module": "./dist/lib.js",
+  "types": "./dist/lib.d.ts",
+  "exports": {
+    ".": "./dist/lib.js",
+    "./*": "./src/*"
+  },
+  "files": [
+    "README.md",
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "test": "vitest",
-    "build": "vue-tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,12 +26,13 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@vitejs/plugin-vue": "^5.2.1",
+    "inflection": "^3.0.0",
     "ky": "^1.7.3",
     "pinia": "^2.3.0",
     "prettier": "^3.4.2",
-    "typescript": "~5.7.2",
+    "typescript": "~5.4.2",
     "vite": "^6.0.3",
-    "vitest": "^2.1.8",
-    "vue-tsc": "^2.1.10"
+    "vite-plugin-dts": "^4.2.3",
+    "vitest": "^2.1.8"
   }
 }

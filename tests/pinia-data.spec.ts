@@ -9,8 +9,9 @@ import {
   JsonApiResourceIdentifier,
   Model,
   ModelDefinition,
+  AsyncMany,
+  AsyncSingle,
 } from '../src/pinia-data'
-import { ComputedRef } from 'vue'
 
 setActivePinia(createPinia())
 
@@ -53,8 +54,8 @@ class JsonApiFetcherMock implements JsonApiFetcher {
 
 class Article extends Model {
   title!: string
-  author!: ComputedRef<Promise<Person>>
-  comments!: ComputedRef<Promise<Comment[]>>
+  author!: AsyncSingle<Person>
+  comments!: AsyncMany<Comment>
 }
 class Person extends Model {
   firstName!: string
@@ -87,7 +88,7 @@ const modelDefinitions: ModelDefinition[] = [
 ]
 
 const usePiniaDataStore = definePiniaDataStore(
-  { endpoint: new URL('http://localhost:3000'), modelDefinitions },
+  { endpoint: 'http://localhost:3000', modelDefinitions },
   new JsonApiFetcherMock(),
 )
 
@@ -110,33 +111,23 @@ describe('Pinia Data Store', () => {
     const article = await findRecord<Article>('article', '1')
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    const comments = await article.comments.value
-    expect(comments.length).toBe(2)
-    expect(comments[0].body).toBe('First!')
-    expect(comments[1].body).toBe('I like XML better')
-  })
-
-  test('single record fetch', async () => {
-    const { findRecord } = usePiniaDataStore()
-    const article = await findRecord<Article>('article', '1')
-    expect(article.id).toBe('1')
-    expect(article.title).toBe('JSON:API paints my bikeshed!')
-    const comments = await article.comments.value
-    expect(comments.length).toBe(2)
-    expect(comments[0].body).toBe('First!')
-    expect(comments[1].body).toBe('I like XML better')
+    const comments = await article.comments.load()
+    expect(comments.value.length).toBe(2)
+    expect(comments.value[0].body).toBe('First!')
+    expect(comments.value[1].body).toBe('I like XML better')
   })
 
   test('all records fetch', async () => {
     const { findAll } = usePiniaDataStore()
-    const articles = await findAll<Article>('article')
-    expect(articles.length).toBe(1)
-    const article = articles[0]
+    const articles = findAll<Article>('article')
+    await articles.load()
+    expect(articles.data.value.length).toBe(1)
+    const article = articles.data.value[0]
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    const comments = await article.comments.value
-    expect(comments.length).toBe(2)
-    expect(comments[0].body).toBe('First!')
-    expect(comments[1].body).toBe('I like XML better')
+    await article.comments.load()
+    expect(article.comments.data.value.length).toBe(2)
+    expect(article.comments.data.value[0].body).toBe('First!')
+    expect(article.comments.data.value[1].body).toBe('I like XML better')
   })
 })
