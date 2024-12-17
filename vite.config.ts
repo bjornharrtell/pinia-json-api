@@ -20,5 +20,8 @@ export default defineConfig({
       formats: ['es'],
       fileName: 'lib',
     },
+    rollupOptions: {
+      external: ['vue', 'pinia', 'ky', 'inflection'],
+    },
   },
 })

@@ -8,9 +8,7 @@ import {
   JsonApiResource,
   JsonApiResourceIdentifier,
   Model,
-  ModelDefinition,
-  AsyncMany,
-  AsyncSingle,
+  ModelDefinition
 } from '../src/pinia-data'
 
 setActivePinia(createPinia())
@@ -53,17 +51,17 @@ class JsonApiFetcherMock implements JsonApiFetcher {
 }
 
 class Article extends Model {
-  title!: string
-  author!: AsyncSingle<Person>
-  comments!: AsyncMany<Comment>
+  title?: string
+  author: Person | null = null
+  comments: Comment[] = []
 }
 class Person extends Model {
-  firstName!: string
-  lastName!: string
-  twitter!: string
+  firstName?: string
+  lastName?: string
+  twitter?: string
 }
 class Comment extends Model {
-  body!: string
+  body?: string
 }
 
 const modelDefinitions: ModelDefinition[] = [
@@ -75,15 +73,11 @@ const modelDefinitions: ModelDefinition[] = [
   },
   {
     type: 'person',
-    ctor: Person,
-    hasMany: new Map(),
-    belongsTo: new Map(),
+    ctor: Person
   },
   {
     type: 'comment',
-    ctor: Comment,
-    hasMany: new Map(),
-    belongsTo: new Map(),
+    ctor: Comment
   },
 ]
 
@@ -108,27 +102,26 @@ describe('Pinia Data Store', () => {
   })
 
   test('single record fetch', async () => {
-    const { findRecord } = usePiniaDataStore()
+    const { findRecord, findRelated } = usePiniaDataStore()
     const article = await findRecord<Article>('article', '1')
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    const comments = await article.comments.load()
-    expect(comments.value.length).toBe(2)
-    expect(comments.value[0].body).toBe('First!')
-    expect(comments.value[1].body).toBe('I like XML better')
+    await findRelated(article, 'comments')
+    expect(article.comments.length).toBe(2)
+    expect(article.comments[0].body).toBe('First!')
+    expect(article.comments[1].body).toBe('I like XML better')
   })
 
   test('all records fetch', async () => {
-    const { findAll } = usePiniaDataStore()
-    const articles = findAll<Article>('article')
-    await articles.load()
-    expect(articles.data.value.length).toBe(1)
-    const article = articles.data.value[0]
+    const { findAll, findRelated } = usePiniaDataStore()
+    const articles = await findAll<Article>('article')
+    expect(articles.length).toBe(1)
+    const article = articles[0]
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    await article.comments.load()
-    expect(article.comments.data.value.length).toBe(2)
-    expect(article.comments.data.value[0].body).toBe('First!')
-    expect(article.comments.data.value[1].body).toBe('I like XML better')
+    await findRelated(article, 'comments')
+    expect(article.comments.length).toBe(2)
+    expect(article.comments[0].body).toBe('First!')
+    expect(article.comments[1].body).toBe('I like XML better')
   })
 })
