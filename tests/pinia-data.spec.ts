@@ -96,14 +96,14 @@ describe('Pinia Data Store', () => {
   test('roundtrip record', async () => {
     const { createRecord, findRecord } = usePiniaDataStore()
     const person = createRecord<Person>('person', { firstName: 'test' })
-    const foundPerson = await findRecord<Person>('person', person.id)
+    const foundPerson = await findRecord(Person, person.id)
     expect(foundPerson.id).toBe(person.id)
     expect(foundPerson.firstName).toBe(person.firstName)
   })
 
   test('single record fetch', async () => {
     const { findRecord, findRelated } = usePiniaDataStore()
-    const article = await findRecord<Article>('article', '1')
+    const article = await findRecord(Article, '1')
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
     await findRelated(article, 'comments')
@@ -114,7 +114,7 @@ describe('Pinia Data Store', () => {
 
   test('all records fetch', async () => {
     const { findAll, findRelated } = usePiniaDataStore()
-    const articles = await findAll<Article>('article')
+    const articles = await findAll(Article)
     expect(articles.length).toBe(1)
     const article = articles[0]
     expect(article.id).toBe('1')
