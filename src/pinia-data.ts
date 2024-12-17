@@ -5,13 +5,13 @@ import { pluralize } from 'inflection'
 
 export interface Model {
   new (id: string): Model
-  _definition: ModelDefinition
+  _type: string
   id: string
   [key: string]: any
 }
 export class Model {
-  constructor(definition: ModelDefinition, id: string) {
-    this._definition = definition
+  constructor(type: string, id: string) {
+    this._type = type
     this.id = id
   }
 }
@@ -67,9 +67,9 @@ function resolvePath(...segments: string[]): string {
   return new URL(segments.join('/')).href
 }
 
-interface LoadOptions extends FetchOptions {}
+export interface FindOptions extends FetchOptions {}
 
-interface FetchOptions {
+export interface FetchOptions {
   fields?: Record<string, string[]>
 }
 
@@ -79,7 +79,6 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
   }
   createOptions(options: FetchOptions = {}) {
     const searchParams = new URLSearchParams()
-    searchParams.append('page[size]', '10')
     const headers = new Headers()
     headers.append('Accept', 'application/vnd.api+json')
     if (this.state) headers.append('Authorization', `Bearer ${this.state.value.token}`)
@@ -93,9 +92,10 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
     return requestOptions
   }
   async fetchAll(type: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
-    const url = resolvePath(this.endpoint, pluralize(type)) + '?page[size]=10'
-    
-    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
+    const url = resolvePath(this.endpoint, pluralize(type))
+    const requestOptions = this.createOptions(options)
+    requestOptions.searchParams.append('page[size]', '10')
+    const doc = await ky.get(url, requestOptions).json<JsonApiDocument>()
     const resources = doc.data as JsonApiResource[]
     return resources
   }
@@ -137,21 +137,22 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       return internalCreateRecord(type, id, properties) as T
     }
 
-    function internalCreateRecord<T extends Model>(type: string, id: string, properties: Partial<T>) {
+    function internalCreateRecord<T extends Model>(type: string, id: string, properties?: Partial<T>) {
       const modelDefinition = modelDefinitions.get(type)
       if (!modelDefinition) throw new Error(`Model ${type} not defined`)
       const recordMap = records.get(type)
       if (!recordMap) throw new Error(`Model ${type} not defined`)
       let record = recordMap.get(id)
       if (!record) {
-        record = shallowReactive<T>(new modelDefinition.ctor(modelDefinition, id) as T)
+        record = shallowReactive<T>(new modelDefinition.ctor(type, id) as T)
       }
-      for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[key] = value
+      if (properties)
+        for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[key] = value
       recordMap.set(id, record)
       return record as T
     }
 
-    async function findAll<T extends Model>(type: string, options?: LoadOptions): Promise<T[]> {
+    async function findAll<T extends Model>(type: string, options?: FindOptions): Promise<T[]> {
       const related = await fetcher!.fetchAll(type, options)
       const records = related.map((r) => internalCreateRecord<T>(type, r.id, r.attributes as Partial<T>))
       return records
@@ -171,9 +172,11 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     }
 
     async function findRelated(record: Model, name: string) {
-      const relType = record._definition?.hasMany?.get(name)
+      const modelDefinition = modelDefinitions.get(record._type)
+      if (!modelDefinition) throw new Error(`Model ${record._type} not defined`)
+      const relType = modelDefinition.hasMany?.get(name)
       if (!relType) return
-      const related = await fetcher!.fetchRelated(record._definition.type, record.id, name)
+      const related = await fetcher!.fetchRelated(record._type, record.id, name)
       const relatedRecords = related.map((r) => internalCreateRecord(relType, r.id, r.attributes))
       record[name] = relatedRecords
     }
@@ -193,3 +196,5 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     }
   })
 }
+
+export type PiniaApiStoreDefinition = ReturnType<typeof definePiniaDataStore>
