@@ -4,6 +4,8 @@ Pinia Data extends Pinia Store with capabilities to fetch typed data models via 
 
 A Pinia Data Store is defined with an endpoint and model definitions and the store instance API provides methods `findAll`, `findRecord` to fetch record(s). Pinia Store will automatically resolve included relationships. If relationships for a record are not included they can be fetched later using `findRelated`.
 
+Records are shallowReactive and if previously fetched they will be updated by subsequent fetches.
+
 ## Example usage
 
 A service returning the canonical example JSON:API document at https://jsonapi.org/ can be consumed by a store defined in this way:
