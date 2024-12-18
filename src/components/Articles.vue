@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { onMounted, shallowRef } from 'vue';
-import { useArticlesModels, useArticlesStore } from '../../tests/articles';
+import { useArticlesModels, useArticlesStore } from '../articles';
 
 const articlesStore = useArticlesStore()
 const { Article } = useArticlesModels()

@@ -1,6 +1,6 @@
-import { definePiniaDataStore, Model } from '../src/pinia-data'
-import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../src/json-api'
-import type { JsonApiFetcher } from '../src/json-api-fetcher'
+import { definePiniaDataStore, Model } from './pinia-data'
+import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
+import type { JsonApiFetcher } from './json-api-fetcher'
 import doc from './articles.json'
 
 export class JsonApiFetcherArticles implements JsonApiFetcher {
