@@ -62,7 +62,10 @@ export const useArticlesStore = definePiniaDataStore(
   new JsonApiFetcherArticles(),
 )
 
+let modelsCache: Record<string, typeof Model> | null = null
 export function useArticlesModels() {
+  if (modelsCache) return modelsCache
+
   const { model, hasMany, belongsTo } = useArticlesStore()
 
   @model('person')
@@ -84,5 +87,6 @@ export function useArticlesModels() {
     @hasMany(Comment) comments: Comment[] = []
   }
 
-  return { Person, Comment, Article }
+  modelsCache = { Person, Comment, Article }
+  return modelsCache
 }
