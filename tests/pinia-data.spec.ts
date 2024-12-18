@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach } from 'vitest'
-import { useArticlesStore, Article, Person } from '../src/articles'
+import { useArticlesStore, Article, Person } from '../src/stores/articles'
 import { createPinia, setActivePinia } from 'pinia'
 
 setActivePinia(createPinia())

@@ -1,6 +1,6 @@
-import { belongsTo, definePiniaDataStore, hasMany, model, Model } from './pinia-data'
-import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
-import type { JsonApiFetcher } from './json-api-fetcher'
+import { belongsTo, definePiniaDataStore, hasMany, model, Model } from '../pinia-data'
+import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../json-api'
+import type { JsonApiFetcher } from '../json-api-fetcher'
 import doc from './articles.json'
 
 export class JsonApiFetcherArticles implements JsonApiFetcher {
@@ -75,7 +75,6 @@ export class Article extends Model {
   @belongsTo(Person) author: Person | null = null
   @hasMany(Comment) comments: Comment[] = []
 }
-
 
 export const useArticlesStore = definePiniaDataStore(
   'articles',

@@ -58,8 +58,8 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
 
   const recordsByType = shallowReactive(new Map<string, Map<string, Model>>())
 
-  for (const type of modelRegistry.values())
-    recordsByType.set(type, new Map<string, Model>())
+  for (const model of config.models)
+    recordsByType.set(modelRegistry.get(model)!, new Map<string, Model>())
 
   function generateId(): string {
     return Math.random().toString(36).substr(2, 9)
@@ -173,9 +173,6 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       modelRegistry,
       hasManyRegistry,
       belongsToRegistry,
-      model,
-      hasMany,
-      belongsTo,
       createRecord,
       findAll,
       findRecord,
