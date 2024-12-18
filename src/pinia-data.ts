@@ -4,6 +4,7 @@ import { JsonApiFetcherImpl, type FetchOptions, type JsonApiFetcher } from './js
 
 const classRegistry = new Map<Constructor<Model>, string>()
 const hasManyRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
+const belongsToRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
 
 export function model(name: string) {
   return function (value: Constructor<Model>) {
@@ -17,6 +18,17 @@ export function hasMany(ctor: Constructor<Model>) {
     return function (this: any): any {
       if (isRegistred) return
       hasManyRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
+      isRegistred = true
+    }
+  }
+}
+
+export function belongsTo(ctor: Constructor<Model>) {
+  return function (_target: undefined, context: ClassFieldDecoratorContext) {
+    let isRegistred = false
+    return function (this: any): any {
+      if (isRegistred) return
+      belongsToRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
       isRegistred = true
     }
   }
@@ -118,13 +130,19 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       const ctor = record.constructor as Constructor<Model>
       const type = classRegistry.get(ctor)
       if (!type) throw new Error(`Model ${record.constructor.name} not defined`)
-      const relCtor = hasManyRegistry.get(ctor)?.get(name)
-      if (!relCtor) throw new Error(`hasMany relation ${name} not defined`)
-      const relType = classRegistry.get(relCtor)
-      if (!relType) throw new Error(`hasMany relation ${name} not defined`)
-      const related = await fetcher!.fetchRelated(type, record.id, name)
-      const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
-      record[name] = relatedRecords
+      if (hasManyRegistry.has(ctor) && hasManyRegistry.get(ctor)!.has(name)) {
+        const relCtor = hasManyRegistry.get(ctor)!.get(name)!
+        const related = await fetcher!.fetchHasMany(type, record.id, name)
+        const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
+        record[name] = relatedRecords
+      } else if (belongsToRegistry.has(ctor) && belongsToRegistry.get(ctor)!.has(name)) {
+        const relCtor = belongsToRegistry.get(ctor)!.get(name)!
+        const related = await fetcher!.fetchBelongsTo(type, record.id, name)
+        const relatedRecord = internalCreateRecord(relCtor, related.id, related.attributes)
+        record[name] = relatedRecord
+      } else {
+        throw new Error(`Model ${record.constructor.name} has no relations`)
+      }
     }
 
     function unloadAll() {

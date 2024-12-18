@@ -14,7 +14,8 @@ export interface FetchOptions {
 export interface JsonApiFetcher {
   fetchOne(type: string, id: string): Promise<JsonApiResource>
   fetchAll(type: string, options?: FetchOptions): Promise<JsonApiResource[]>
-  fetchRelated(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource[]>
+  fetchHasMany(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource[]>
+  fetchBelongsTo(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource>
 }
 
 export class JsonApiFetcherImpl implements JsonApiFetcher {
@@ -50,10 +51,16 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     const resource = doc.data as JsonApiResource
     return resource
   }
-  async fetchRelated(type: string, id: string, name: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
+  async fetchHasMany(type: string, id: string, name: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
     const url = resolvePath(this.endpoint, pluralize(type), id, name)
     const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
     const resource = doc.data as JsonApiResource[]
+    return resource
+  }
+  async fetchBelongsTo(type: string, id: string, name: string, options: FetchOptions = {}): Promise<JsonApiResource> {
+    const url = resolvePath(this.endpoint, pluralize(type), id, name)
+    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
+    const resource = doc.data as JsonApiResource
     return resource
   }
 }
