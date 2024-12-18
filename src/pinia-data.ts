@@ -1,21 +1,20 @@
 import { defineStore } from 'pinia'
 import { type ComputedRef, shallowReactive } from 'vue'
-import ky from 'ky'
-import { pluralize } from 'inflection'
+import { JsonApiFetcherImpl, type FetchOptions, type JsonApiFetcher } from './json-api-fetcher'
 
 const classRegistry = new Map<Constructor<Model>, string>()
 const hasManyRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
 
 export function model(name: string) {
-  return function(value: Constructor<Model>) {
+  return function (value: Constructor<Model>) {
     classRegistry.set(value, name)
   }
 }
 
 export function hasMany(ctor: Constructor<Model>) {
-  return function(_target: undefined, context: ClassFieldDecoratorContext) {
+  return function (_target: undefined, context: ClassFieldDecoratorContext) {
     let isRegistred = false
-    return function(this: any): any {
+    return function (this: any): any {
       if (isRegistred) return
       hasManyRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
       isRegistred = true
@@ -44,84 +43,7 @@ export interface PiniaDataStoreConfig {
   state?: ComputedRef<{ token: string }>
 }
 
-export interface JsonApiResourceIdentifier {
-  id: string
-  type: string
-}
-
-export interface JsonApiRelationship {
-  data: null | [] | JsonApiResourceIdentifier | JsonApiResourceIdentifier[]
-}
-
-export interface JsonApiResource {
-  id: string
-  type: string
-  attributes: Record<string, any>
-  relationships: Record<string, JsonApiRelationship>
-}
-
-export interface JsonApiDocument {
-  data: JsonApiResource | JsonApiResource[]
-  included?: JsonApiResource[]
-  meta?: object
-}
-
-export interface JsonApiFetcher {
-  fetchOne(type: string, id: string): Promise<JsonApiResource>
-  fetchAll(type: string, options?: FetchOptions): Promise<JsonApiResource[]>
-  fetchRelated(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource[]>
-}
-
-function resolvePath(...segments: string[]): string {
-  return new URL(segments.join('/')).href
-}
-
 export interface FindOptions extends FetchOptions {}
-
-export interface FetchOptions {
-  fields?: Record<string, string[]>
-}
-
-class JsonApiFetcherImpl implements JsonApiFetcher {
-  constructor(
-    private endpoint: string,
-    private state?: ComputedRef<{ token: string }>,
-  ) {}
-  createOptions(options: FetchOptions = {}) {
-    const searchParams = new URLSearchParams()
-    const headers = new Headers()
-    headers.append('Accept', 'application/vnd.api+json')
-    if (this.state) headers.append('Authorization', `Bearer ${this.state.value.token}`)
-    const requestOptions = {
-      searchParams,
-      headers,
-    }
-    if (options.fields)
-      for (const [key, value] of Object.entries(options.fields))
-        searchParams.append(`fields[${pluralize(key)}]`, value.join(','))
-    return requestOptions
-  }
-  async fetchAll(type: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
-    const url = resolvePath(this.endpoint, pluralize(type))
-    const requestOptions = this.createOptions(options)
-    requestOptions.searchParams.append('page[size]', '10')
-    const doc = await ky.get(url, requestOptions).json<JsonApiDocument>()
-    const resources = doc.data as JsonApiResource[]
-    return resources
-  }
-  async fetchOne(type: string, id: string, options: FetchOptions = {}): Promise<JsonApiResource> {
-    const url = resolvePath(this.endpoint, pluralize(type), id)
-    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
-    const resource = doc.data as JsonApiResource
-    return resource
-  }
-  async fetchRelated(type: string, id: string, name: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
-    const url = resolvePath(this.endpoint, pluralize(type), id, name)
-    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
-    const resource = doc.data as JsonApiResource[]
-    return resource
-  }
-}
 
 export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
@@ -137,14 +59,21 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       return Math.random().toString(36).substr(2, 9)
     }
 
-    function createRecord<T extends Constructor<Model>>(ctor: T, properties: Partial<InferInstanceType<T>> & { id?: string }): InferInstanceType<T> {
+    function createRecord<T extends Constructor<Model>>(
+      ctor: T,
+      properties: Partial<InferInstanceType<T>> & { id?: string },
+    ): InferInstanceType<T> {
       const type = classRegistry.get(ctor)
       if (!type) throw new Error(`Model ${type} not defined`)
       const id = properties.id || generateId()
       return internalCreateRecord(ctor, id, properties) as InferInstanceType<T>
     }
 
-    function internalCreateRecord<T extends Constructor<Model>>(ctor: T, id: string, properties?: Partial<InferInstanceType<T>>): InferInstanceType<T> {
+    function internalCreateRecord<T extends Constructor<Model>>(
+      ctor: T,
+      id: string,
+      properties?: Partial<InferInstanceType<T>>,
+    ): InferInstanceType<T> {
       const type = classRegistry.get(ctor)
       if (!type) throw new Error(`Model ${type} not defined`)
       const recordMap = recordsByType.get(type)
@@ -164,14 +93,13 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       const type = classRegistry.get(ctor)
       if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const related = await fetcher!.fetchAll(type, options)
-      const records = related.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InferInstanceType<T>>))
+      const records = related.map((r) =>
+        internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InferInstanceType<T>>),
+      )
       return records as InferInstanceType<T>[]
     }
 
-    async function findRecord<T extends Constructor<Model>>(
-      ctor: T,
-      id: string,
-    ): Promise<InferInstanceType<T>> {
+    async function findRecord<T extends Constructor<Model>>(ctor: T, id: string): Promise<InferInstanceType<T>> {
       const type = classRegistry.get(ctor)
       if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const records = recordsByType.get(type)
