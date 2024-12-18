@@ -19,15 +19,10 @@ onMounted(async () => {
   <h2>Articles</h2>
   <div v-for="article in articles">
     <h3>{{ article.title }}<i v-if="article.author"> (by {{ article.author.firstName }} {{ article.author.lastName }})</i></h3>
-    <h7 v-if="article.comments">Comments:</h7>
+    <h7 v-if="article.comments">Comments</h7>
     <ul>
       <li v-for="comment in article.comments">{{ comment.body }}</li>
     </ul>
   </div>
 </template>
 
-<style scoped>
-.read-the-docs {
-  color: #888;
-}
-</style>
