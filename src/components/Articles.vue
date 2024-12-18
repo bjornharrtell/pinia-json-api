@@ -8,7 +8,8 @@ const articlesStore = useArticlesStore()
 const articles = shallowRef<InstanceType<typeof Article>[]>([])
 
 onMounted(async () => {
-  articles.value = await articlesStore.findAll(Article)
+  const { records } = await articlesStore.findAll(Article)
+  articles.value = records
 })
 
 </script>

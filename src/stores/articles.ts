@@ -28,7 +28,7 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     if (!article) throw new Error(`Article ${id} not found`) 
     return article
   }
-  async fetchHasMany(_type: string, id: string, name: string): Promise<JsonApiResource[]> {
+  async fetchHasMany(_type: string, id: string, name: string) {
     const article = this.articles.find((a) => a.id === id)
     if (!article) throw new Error(`Article ${id} not found`)
     const relationship = article.relationships[name]
@@ -39,9 +39,9 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     }
     const rids = relationship.data as JsonApiResourceIdentifier[]
     const related = rids.map(findIncluded)
-    return related
+    return { data: related } as JsonApiDocument
   }
-  async fetchBelongsTo(type: string, id: string, name: string): Promise<JsonApiResource> {
+  async fetchBelongsTo(type: string, id: string, name: string) {
     if (type !== 'article') throw new Error(`Type ${type} not supported`)
     const article = this.articles.find((a) => a.id === id)
     if (!article) throw new Error(`Article ${id} not found`)
@@ -53,7 +53,7 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     }
     const rid = relationship.data as JsonApiResourceIdentifier
     const related = findIncluded(rid)
-    return related
+    return { data: related } as JsonApiDocument
   }
 }
 

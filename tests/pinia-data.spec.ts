@@ -31,7 +31,7 @@ describe('Pinia Data Store', () => {
 
   test('all records fetch', async () => {
     const { findAll, findRelated } = useArticlesStore()
-    const articles = await findAll(Article)
+    const { records: articles } = await findAll(Article)
     expect(articles.length).toBe(1)
     const article = articles[0]
     expect(article.id).toBe('1')

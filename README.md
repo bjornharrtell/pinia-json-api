@@ -41,7 +41,7 @@ The above store can then be used as follows:
 ```ts
 import { useArticlesStore } from './stores/articles'
 const { findAll } = useArticlesStore()
-const articles = await findAll(Article, { include: ['comments', 'author'] })
+const { records: articles } = await findAll(Article, { include: ['comments', 'author'] })
 expect(articles.length).toBe(1)
 const article = articles[0]
 expect(article.id).toBe('1')

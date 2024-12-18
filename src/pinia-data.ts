@@ -124,7 +124,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     const doc = await fetcher!.fetchDocument(type, undefined, options)
     const resources = doc.data as JsonApiResource[]
     const records = resourcesToRecords(ctor, resources, doc.included)
-    return records
+    return { doc, records }
   }
 
   async function findRecord<T extends typeof Model>(ctor: T, id: string) {
@@ -150,17 +150,20 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     if (!type) throw new Error(`Model ${record.constructor.name} not defined`)
     if (hasManyRegistry.has(ctor) && hasManyRegistry.get(ctor)!.has(name)) {
       const relCtor = hasManyRegistry.get(ctor)!.get(name)!
-      const related = await fetcher!.fetchHasMany(type, record.id, name)
+      const doc = await fetcher!.fetchHasMany(type, record.id, name)
+      const related = doc.data as JsonApiResource[]
       const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
       record[name] = relatedRecords
+      return doc
     } else if (belongsToRegistry.has(ctor) && belongsToRegistry.get(ctor)!.has(name)) {
       const relCtor = belongsToRegistry.get(ctor)!.get(name)!
-      const related = await fetcher!.fetchBelongsTo(type, record.id, name)
+      const doc = await fetcher!.fetchBelongsTo(type, record.id, name)
+      const related = doc.data as JsonApiResource
       const relatedRecord = internalCreateRecord(relCtor, related.id, related.attributes)
       record[name] = relatedRecord
-    } else {
-      throw new Error(`Model ${record.constructor.name} has no relations`)
+      return doc
     }
+    throw new Error(`Model ${record.constructor.name} has no relations`)
   }
 
   function unloadAll() {
