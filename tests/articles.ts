@@ -1,9 +1,4 @@
-import {
-  Model,
-  hasMany,
-  belongsTo,
-  model
-} from '../src/pinia-data'
+import { definePiniaDataStore, Model } from '../src/pinia-data'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../src/json-api'
 import type { JsonApiFetcher } from '../src/json-api-fetcher'
 import doc from './articles.json'
@@ -61,21 +56,33 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
   }
 }
 
-@model('person')
-export class Person extends Model {
-  firstName?: string
-  lastName?: string
-  twitter?: string
-}
+export const useArticlesStore = definePiniaDataStore(
+  'articles',
+  { endpoint: 'http://localhost:3000' },
+  new JsonApiFetcherArticles(),
+)
 
-@model('comment')
-export class Comment extends Model {
-  body?: string
-}
+export function useArticlesModels() {
+  const { model, hasMany, belongsTo } = useArticlesStore()
 
-@model('article')
-export class Article extends Model {
-  title?: string
-  @belongsTo(Person) author: Person | null = null
-  @hasMany(Comment) comments: Comment[] = []
+  @model('person')
+  class Person extends Model {
+    firstName?: string
+    lastName?: string
+    twitter?: string
+  }
+
+  @model('comment')
+  class Comment extends Model {
+    body?: string
+  }
+
+  @model('article')
+  class Article extends Model {
+    title?: string
+    @belongsTo(Person) author: Person | null = null
+    @hasMany(Comment) comments: Comment[] = []
+  }
+
+  return { Person, Comment, Article }
 }

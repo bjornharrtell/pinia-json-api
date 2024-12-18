@@ -1,26 +1,19 @@
 import { describe, expect, test, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { definePiniaDataStore } from '../src/pinia-data'
-import { Article, Comment, Person, JsonApiFetcherArticles } from './articles'
+import { useArticlesStore, useArticlesModels } from './articles'
+import { createPinia, setActivePinia } from 'pinia'
 
 setActivePinia(createPinia())
 
-const models = [Person, Comment, Article]
-
-const usePiniaDataStore = definePiniaDataStore(
-  'pinia-data',
-  { endpoint: 'http://localhost:3000', models },
-  new JsonApiFetcherArticles(),
-)
+const { Article, Person } = useArticlesModels()
 
 describe('Pinia Data Store', () => {
   beforeEach(() => {
-    const { unloadAll } = usePiniaDataStore()
+    const { unloadAll } = useArticlesStore()
     unloadAll()
   })
 
   test('roundtrip record', async () => {
-    const { createRecord, findRecord } = usePiniaDataStore()
+    const { createRecord, findRecord } = useArticlesStore()
     const person = createRecord(Person, { firstName: 'test' })
     const foundPerson = await findRecord(Person, person.id)
     expect(foundPerson.id).toBe(person.id)
@@ -28,7 +21,7 @@ describe('Pinia Data Store', () => {
   })
 
   test('single record fetch', async () => {
-    const { findRecord, findRelated } = usePiniaDataStore()
+    const { findRecord, findRelated } = useArticlesStore()
     const article = await findRecord(Article, '1')
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
@@ -39,7 +32,7 @@ describe('Pinia Data Store', () => {
   })
 
   test('all records fetch', async () => {
-    const { findAll, findRelated } = usePiniaDataStore()
+    const { findAll, findRelated } = useArticlesStore()
     const articles = await findAll(Article)
     expect(articles.length).toBe(1)
     const article = articles[0]

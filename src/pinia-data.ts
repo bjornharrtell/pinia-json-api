@@ -2,38 +2,6 @@ import { defineStore } from 'pinia'
 import { type ComputedRef, shallowReactive } from 'vue'
 import { JsonApiFetcherImpl, type FetchOptions, type JsonApiFetcher } from './json-api-fetcher'
 
-const classRegistry = new Map<Constructor<Model>, string>()
-const hasManyRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
-const belongsToRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
-
-export function model(name: string) {
-  return function (value: Constructor<Model>) {
-    classRegistry.set(value, name)
-  }
-}
-
-export function hasMany(ctor: Constructor<Model>) {
-  return function (_target: undefined, context: ClassFieldDecoratorContext) {
-    let isRegistred = false
-    return function (this: any): any {
-      if (isRegistred) return
-      hasManyRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
-      isRegistred = true
-    }
-  }
-}
-
-export function belongsTo(ctor: Constructor<Model>) {
-  return function (_target: undefined, context: ClassFieldDecoratorContext) {
-    let isRegistred = false
-    return function (this: any): any {
-      if (isRegistred) return
-      belongsToRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
-      isRegistred = true
-    }
-  }
-}
-
 export class Model {
   id: string
   constructor(id: string) {
@@ -51,7 +19,6 @@ type InferInstanceType<T> = T extends Constructor<infer U> ? U : never
 
 export interface PiniaDataStoreConfig {
   endpoint: string
-  models: Constructor<Model>[]
   state?: ComputedRef<{ token: string }>
 }
 
@@ -59,11 +26,41 @@ export interface FindOptions extends FetchOptions {}
 
 export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
+
   const recordsByType = shallowReactive(new Map<string, Map<string, InstanceOfConstructor>>())
-  for (const model of config.models) {
-    const type = classRegistry.get(model)
-    if (!type) throw new Error(`Model ${type} not defined`)
-    recordsByType.set(type, new Map<string, Model>())
+
+  //const modelRegistry = shallowReactive(new Set<Constructor<Model>>())
+  const modelRegistry = shallowReactive(new Map<Constructor<Model>, string>())
+  const hasManyRegistry = shallowReactive(new Map<Constructor<Model>, Map<string, Constructor<Model>>>())
+  const belongsToRegistry = shallowReactive(new Map<Constructor<Model>, Map<string, Constructor<Model>>>())
+
+  function model(type: string) {
+    return function (value: Constructor<Model>) {
+      modelRegistry.set(value, type)
+      recordsByType.set(type, new Map<string, Model>())
+    }
+  }
+
+  function hasMany(ctor: Constructor<Model>) {
+    return function (_target: undefined, context: ClassFieldDecoratorContext) {
+      let isRegistred = false
+      return function (this: any): any {
+        if (isRegistred) return
+        hasManyRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
+        isRegistred = true
+      }
+    }
+  }
+
+  function belongsTo(ctor: Constructor<Model>) {
+    return function (_target: undefined, context: ClassFieldDecoratorContext) {
+      let isRegistred = false
+      return function (this: any): any {
+        if (isRegistred) return
+        belongsToRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
+        isRegistred = true
+      }
+    }
   }
 
   return defineStore(name, () => {
@@ -75,7 +72,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       ctor: T,
       properties: Partial<InferInstanceType<T>> & { id?: string },
     ): InferInstanceType<T> {
-      const type = classRegistry.get(ctor)
+      const type = modelRegistry.get(ctor)
       if (!type) throw new Error(`Model ${type} not defined`)
       const id = properties.id || generateId()
       return internalCreateRecord(ctor, id, properties) as InferInstanceType<T>
@@ -86,7 +83,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       id: string,
       properties?: Partial<InferInstanceType<T>>,
     ): InferInstanceType<T> {
-      const type = classRegistry.get(ctor)
+      const type = modelRegistry.get(ctor)
       if (!type) throw new Error(`Model ${type} not defined`)
       const recordMap = recordsByType.get(type)
       if (!recordMap) throw new Error(`Model ${type} not defined`)
@@ -102,7 +99,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       ctor: T,
       options?: FindOptions,
     ): Promise<InferInstanceType<T>[]> {
-      const type = classRegistry.get(ctor)
+      const type = modelRegistry.get(ctor)
       if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const related = await fetcher!.fetchAll(type, options)
       const records = related.map((r) =>
@@ -112,7 +109,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     }
 
     async function findRecord<T extends Constructor<Model>>(ctor: T, id: string): Promise<InferInstanceType<T>> {
-      const type = classRegistry.get(ctor)
+      const type = modelRegistry.get(ctor)
       if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const records = recordsByType.get(type)
       if (!records) throw new Error(`Model with name ${type} not defined`)
@@ -128,7 +125,7 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
 
     async function findRelated(record: Model, name: string) {
       const ctor = record.constructor as Constructor<Model>
-      const type = classRegistry.get(ctor)
+      const type = modelRegistry.get(ctor)
       if (!type) throw new Error(`Model ${record.constructor.name} not defined`)
       if (hasManyRegistry.has(ctor) && hasManyRegistry.get(ctor)!.has(name)) {
         const relCtor = hasManyRegistry.get(ctor)!.get(name)!
@@ -151,6 +148,9 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
 
     return {
       recordsByType,
+      model,
+      hasMany,
+      belongsTo,
       createRecord,
       findAll,
       findRecord,
