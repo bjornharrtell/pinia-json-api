@@ -2,9 +2,7 @@
 
 Pinia Data extends Pinia Store with capabilities to fetch typed data models via an JSON:API endpoint into record instances.
 
-A Pinia Data Store is defined with an endpoint and model definitions and the store instance API provides methods `findAll`, `findRecord` andto fetch record(s)
-
-A Pinia Data Store will resolve included relationships automatically for fetched records. If relationships for a record are not included they can be fetched later using `findRelated`.
+A Pinia Data Store is defined with an endpoint and model definitions and the store instance API provides methods `findAll`, `findRecord` to fetch record(s). Pinia Store will automatically resolve included relationships. If relationships for a record are not included they can be fetched later using `findRelated`.
 
 ## Example usage
 
@@ -33,7 +31,7 @@ export class Article extends Model {
 }
 
 export const useArticlesStore = definePiniaDataStore('articles', {
-  endpoint: 'http://localhost:3000',
+  endpoint: 'http://localhost/api',
   models: [Person, Comment, Article]
 })
 ```
@@ -43,7 +41,7 @@ The above store can then be used as follows:
 ```ts
 import { useArticlesStore } from './stores/articles'
 const { findAll } = useArticlesStore()
-const articles = await findAll(Article)
+const articles = await findAll(Article, { include: ['comments', 'author'] })
 expect(articles.length).toBe(1)
 const article = articles[0]
 expect(article.id).toBe('1')
