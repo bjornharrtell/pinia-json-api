@@ -9,7 +9,7 @@ A Pinia Data Store is defined with an endpoint and model definitions and the sto
 A service returning the canonical example JSON:API document at https://jsonapi.org/ can be consumed by a store defined in this way:
 
 ```ts
-import { belongsTo, definePiniaDataStore, hasMany, model, Model } from 'pinia-data'
+import { definePiniaDataStore, Model, model, belongsTo, hasMany } from 'pinia-data'
 
 @model('person')
 export class Person extends Model {
