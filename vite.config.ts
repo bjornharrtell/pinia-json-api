@@ -5,14 +5,22 @@ import dts from 'vite-plugin-dts'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue(), dts({ rollupTypes: true, tsconfigPath: './tsconfig.app.json' })],
+  plugins: [
+    vue(),
+    dts({ rollupTypes: true, tsconfigPath: './tsconfig.app.json' })
+  ],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
     },
   },
+  esbuild: {
+    supported: {
+      decorators: false
+    }
+  },
   build: {
-    target: 'esnext',
+    target: 'es2022',
     sourcemap: true,
     minify: true,
     lib: {

@@ -1,17 +1,34 @@
 import { defineStore } from 'pinia'
-import { ComputedRef, shallowReactive } from 'vue'
+import { type ComputedRef, shallowReactive } from 'vue'
 import ky from 'ky'
 import { pluralize } from 'inflection'
 
-export interface Model {
-  new (id: string): Model
-  id: string
-  [key: string]: any
+const classRegistry = new Map<Constructor<Model>, string>()
+const hasManyRegistry = new Map<Constructor<Model>, Map<string, Constructor<Model>>>()
+
+export function model(name: string) {
+  return function(value: Constructor<Model>) {
+    classRegistry.set(value, name)
+  }
 }
+
+export function hasMany(ctor: Constructor<Model>) {
+  return function(_target: undefined, context: ClassFieldDecoratorContext) {
+    let isRegistred = false
+    return function(this: any): any {
+      if (isRegistred) return
+      hasManyRegistry.set(this.constructor as Constructor<Model>, new Map([[context.name as string, ctor]]))
+      isRegistred = true
+    }
+  }
+}
+
 export class Model {
+  id: string
   constructor(id: string) {
     this.id = id
   }
+  [key: string]: any
 }
 
 export interface Constructor<T> {
@@ -23,7 +40,7 @@ type InferInstanceType<T> = T extends Constructor<infer U> ? U : never
 
 export interface PiniaDataStoreConfig {
   endpoint: string
-  modelDefinitions: ModelDefinition[]
+  models: Constructor<Model>[]
   state?: ComputedRef<{ token: string }>
 }
 
@@ -53,13 +70,6 @@ export interface JsonApiFetcher {
   fetchOne(type: string, id: string): Promise<JsonApiResource>
   fetchAll(type: string, options?: FetchOptions): Promise<JsonApiResource[]>
   fetchRelated(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource[]>
-}
-
-export interface ModelDefinition {
-  type: string
-  ctor: Constructor<Model>
-  hasMany?: Map<string, string>
-  belongsTo?: Map<string, string>
 }
 
 function resolvePath(...segments: string[]): string {
@@ -115,16 +125,11 @@ class JsonApiFetcherImpl implements JsonApiFetcher {
 
 export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
-
-  const modelDefinitionsByType = shallowReactive(new Map<string, ModelDefinition>())
-  const modelDefinitionsByCtor = shallowReactive(new Map<Constructor<Model>, ModelDefinition>())
   const recordsByType = shallowReactive(new Map<string, Map<string, InstanceOfConstructor>>())
-  for (const modelDefinition of config.modelDefinitions) {
-    if (!modelDefinition.hasMany) modelDefinition.hasMany = new Map()
-    if (!modelDefinition.belongsTo) modelDefinition.belongsTo = new Map()
-    modelDefinitionsByType.set(modelDefinition.type, modelDefinition)
-    modelDefinitionsByCtor.set(modelDefinition.ctor, modelDefinition)
-    recordsByType.set(modelDefinition.type, new Map<string, Model>())
+  for (const model of config.models) {
+    const type = classRegistry.get(model)
+    if (!type) throw new Error(`Model ${type} not defined`)
+    recordsByType.set(type, new Map<string, Model>())
   }
 
   return defineStore(name, () => {
@@ -132,50 +137,48 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
       return Math.random().toString(36).substr(2, 9)
     }
 
-    function createRecord<T extends Model>(type: string, properties: Partial<T> & { id?: string }): T {
-      const modelConstructor = modelDefinitionsByType.get(type)
-      if (!modelConstructor) throw new Error(`Model ${type} not defined`)
+    function createRecord<T extends Constructor<Model>>(ctor: T, properties: Partial<InferInstanceType<T>> & { id?: string }): InferInstanceType<T> {
+      const type = classRegistry.get(ctor)
+      if (!type) throw new Error(`Model ${type} not defined`)
       const id = properties.id || generateId()
-      return internalCreateRecord(type, id, properties) as T
+      return internalCreateRecord(ctor, id, properties) as InferInstanceType<T>
     }
 
-    function internalCreateRecord<T extends Model>(type: string, id: string, properties?: Partial<T>) {
-      const modelDefinition = modelDefinitionsByType.get(type)
-      if (!modelDefinition) throw new Error(`Model ${type} not defined`)
+    function internalCreateRecord<T extends Constructor<Model>>(ctor: T, id: string, properties?: Partial<InferInstanceType<T>>): InferInstanceType<T> {
+      const type = classRegistry.get(ctor)
+      if (!type) throw new Error(`Model ${type} not defined`)
       const recordMap = recordsByType.get(type)
       if (!recordMap) throw new Error(`Model ${type} not defined`)
       let record = recordMap.get(id)
-      if (!record) record = shallowReactive<T>(new modelDefinition.ctor(id) as T)
+      if (!record) record = shallowReactive<InferInstanceType<T>>(new ctor(id) as InferInstanceType<T>)
       if (properties)
         for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[key] = value
       recordMap.set(id, record)
-      return record as T
+      return record as InferInstanceType<T>
     }
 
     async function findAll<T extends Constructor<Model>>(
       ctor: T,
       options?: FindOptions,
     ): Promise<InferInstanceType<T>[]> {
-      const modelDefinition = modelDefinitionsByCtor.get(ctor)
-      if (!modelDefinition) throw new Error(`Model ${ctor.name} not defined`)
-      const type = modelDefinition.type
+      const type = classRegistry.get(ctor)
+      if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const related = await fetcher!.fetchAll(type, options)
-      const records = related.map((r) => internalCreateRecord(type, r.id, r.attributes))
+      const records = related.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InferInstanceType<T>>))
       return records as InferInstanceType<T>[]
     }
 
     async function findRecord<T extends Constructor<Model>>(
-      ctor: Constructor<Model>,
+      ctor: T,
       id: string,
     ): Promise<InferInstanceType<T>> {
-      const modelDefinition = modelDefinitionsByCtor.get(ctor)
-      if (!modelDefinition) throw new Error(`Model ${ctor.name} not defined`)
-      const type = modelDefinition.type
+      const type = classRegistry.get(ctor)
+      if (!type) throw new Error(`Model ${ctor.name} not defined`)
       const records = recordsByType.get(type)
       if (!records) throw new Error(`Model with name ${type} not defined`)
       if (!records.has(id)) {
         const resource = await fetcher!.fetchOne(type, id)
-        const newRecord = internalCreateRecord(type, id, resource.attributes)
+        const newRecord = internalCreateRecord<T>(ctor, id, resource.attributes as Partial<InferInstanceType<T>>)
         records.set(id, newRecord)
       }
       const record = records.get(id)
@@ -184,13 +187,15 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     }
 
     async function findRelated(record: Model, name: string) {
-      const modelDefinition = modelDefinitionsByCtor.get(record.constructor as Constructor<Model>)
-      if (!modelDefinition) throw new Error(`Model ${record.constructor.name} not defined`)
-      const type = modelDefinition.type
-      const relType = modelDefinition.hasMany?.get(name)
-      if (!relType) return
+      const ctor = record.constructor as Constructor<Model>
+      const type = classRegistry.get(ctor)
+      if (!type) throw new Error(`Model ${record.constructor.name} not defined`)
+      const relCtor = hasManyRegistry.get(ctor)?.get(name)
+      if (!relCtor) throw new Error(`hasMany relation ${name} not defined`)
+      const relType = classRegistry.get(relCtor)
+      if (!relType) throw new Error(`hasMany relation ${name} not defined`)
       const related = await fetcher!.fetchRelated(type, record.id, name)
-      const relatedRecords = related.map((r) => internalCreateRecord(relType, r.id, r.attributes))
+      const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
       record[name] = relatedRecords
     }
 
@@ -199,8 +204,6 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     }
 
     return {
-      modelDefinitionsByType,
-      modelDefinitionsByCtor,
       recordsByType,
       createRecord,
       findAll,

@@ -8,7 +8,8 @@ import {
   JsonApiResource,
   JsonApiResourceIdentifier,
   Model,
-  ModelDefinition
+  hasMany,
+  model
 } from '../src/pinia-data'
 
 setActivePinia(createPinia())
@@ -50,40 +51,31 @@ class JsonApiFetcherMock implements JsonApiFetcher {
   }
 }
 
-class Article extends Model {
-  title?: string
-  author: Person | null = null
-  comments: Comment[] = []
-}
+@model('person')
 class Person extends Model {
   firstName?: string
   lastName?: string
   twitter?: string
 }
+
+@model('comment')
 class Comment extends Model {
   body?: string
 }
 
-const modelDefinitions: ModelDefinition[] = [
-  {
-    type: 'article',
-    ctor: Article,
-    hasMany: new Map([['comments', 'comment']]),
-    belongsTo: new Map([['author', 'person']]),
-  },
-  {
-    type: 'person',
-    ctor: Person
-  },
-  {
-    type: 'comment',
-    ctor: Comment
-  },
-]
+@model('article')
+class Article extends Model {
+  title?: string
+  author: Person | null = null
+  @hasMany(Comment)
+  comments: Comment[] = []
+}
+
+const models = [Person, Comment, Article]
 
 const usePiniaDataStore = definePiniaDataStore(
   'pinia-data',
-  { endpoint: 'http://localhost:3000', modelDefinitions },
+  { endpoint: 'http://localhost:3000', models },
   new JsonApiFetcherMock(),
 )
 
@@ -95,7 +87,7 @@ describe('Pinia Data Store', () => {
 
   test('roundtrip record', async () => {
     const { createRecord, findRecord } = usePiniaDataStore()
-    const person = createRecord<Person>('person', { firstName: 'test' })
+    const person = createRecord(Person, { firstName: 'test' })
     const foundPerson = await findRecord(Person, person.id)
     expect(foundPerson.id).toBe(person.id)
     expect(foundPerson.firstName).toBe(person.firstName)
