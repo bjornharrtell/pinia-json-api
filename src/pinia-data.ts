@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { type ComputedRef, shallowReactive } from 'vue'
 import { JsonApiFetcherImpl, type FetchOptions, type JsonApiFetcher } from './json-api-fetcher'
+import type { JsonApiResource, JsonApiResourceIdentifier } from './json-api'
+import { singularize } from 'inflection'
 
 export class Model {
   constructor(public id: string) {
@@ -11,47 +13,53 @@ export class Model {
 
 export interface PiniaDataStoreConfig {
   endpoint: string
+  models: typeof Model[]
   state?: ComputedRef<{ token: string }>
 }
 
 export interface FindOptions extends FetchOptions {}
 
+const modelRegistry = shallowReactive(new Map<typeof Model, string>())
+const modelsByType = shallowReactive(new Map<string, typeof Model>())
+const hasManyRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
+const belongsToRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
+
+export function model(type: string) {
+  return function (value: typeof Model) {
+    modelRegistry.set(value, type)
+    modelsByType.set(type, value)
+  }
+}
+
+export function hasMany(ctor: typeof Model) {
+  return function (_target: undefined, context: ClassFieldDecoratorContext) {
+    let isRegistred = false
+    return function (this: any): any {
+      if (isRegistred) return
+      hasManyRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
+      isRegistred = true
+    }
+  }
+}
+
+export function belongsTo(ctor: typeof Model) {
+  return function (_target: undefined, context: ClassFieldDecoratorContext) {
+    let isRegistred = false
+    return function (this: any): any {
+      if (isRegistred) return
+      belongsToRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
+      isRegistred = true
+    }
+  }
+}
+
 export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
 
   const recordsByType = shallowReactive(new Map<string, Map<string, Model>>())
-  const modelRegistry = shallowReactive(new Map<typeof Model, string>())
-  const hasManyRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
-  const belongsToRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
 
-  function model(type: string) {
-    return function (value: typeof Model) {
-      modelRegistry.set(value, type)
-      recordsByType.set(type, new Map<string, Model>())
-    }
-  }
-
-  function hasMany(ctor: typeof Model) {
-    return function (_target: undefined, context: ClassFieldDecoratorContext) {
-      let isRegistred = false
-      return function (this: any): any {
-        if (isRegistred) return
-        hasManyRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
-        isRegistred = true
-      }
-    }
-  }
-
-  function belongsTo(ctor: typeof Model) {
-    return function (_target: undefined, context: ClassFieldDecoratorContext) {
-      let isRegistred = false
-      return function (this: any): any {
-        if (isRegistred) return
-        belongsToRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
-        isRegistred = true
-      }
-    }
-  }
+  for (const type of modelRegistry.values())
+    recordsByType.set(type, new Map<string, Model>())
 
   function generateId(): string {
     return Math.random().toString(36).substr(2, 9)
@@ -76,25 +84,62 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
     return record as InstanceType<T>
   }
 
+  function resourcesToRecords<T extends typeof Model>(
+    ctor: T,
+    resources: JsonApiResource[],
+    included?: JsonApiResource[],
+  ) {
+    if (included)
+      included.map((r) => {
+        internalCreateRecord<T>(
+          modelsByType.get(singularize(r.type))! as T,
+          r.id,
+          r.attributes as Partial<InstanceType<T>>,
+        )
+      })
+    const records = resources.map((r) => {
+      const record = internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>) as Model
+      if (included && r.relationships)
+        for (const [name, rel] of Object.entries(r.relationships)) {
+          if (hasManyRegistry.get(ctor)?.has(name)) {
+            const relType = modelRegistry.get(hasManyRegistry.get(ctor)?.get(name)!)!
+            const relTypeRecords = recordsByType.get(relType)
+            const relRecords = (rel.data as JsonApiResourceIdentifier[]).map((d) => relTypeRecords?.get(d.id))
+            record[name] = relRecords
+          } else if (belongsToRegistry.get(ctor)?.has(name)) {
+            const relType = modelRegistry.get(belongsToRegistry.get(ctor)?.get(name)!)!
+            const relTypeRecords = recordsByType.get(relType)
+            const relRecord = relTypeRecords?.get((rel.data as JsonApiResourceIdentifier).id)
+            record[name] = relRecord
+          }
+        }
+      return record
+    })
+    return records as InstanceType<T>[]
+  }
+
   async function findAll<T extends typeof Model>(ctor: T, options?: FindOptions) {
     const type = modelRegistry.get(ctor)
     if (!type) throw new Error(`Model ${ctor.name} not defined`)
-    const related = await fetcher!.fetchAll(type, options)
-    const records = related.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>))
-    return records as InstanceType<T>[]
+    const doc = await fetcher!.fetchDocument(type, undefined, options)
+    const resources = doc.data as JsonApiResource[]
+    const records = resourcesToRecords(ctor, resources, doc.included)
+    return records
   }
 
   async function findRecord<T extends typeof Model>(ctor: T, id: string) {
     const type = modelRegistry.get(ctor)
     if (!type) throw new Error(`Model ${ctor.name} not defined`)
-    const records = recordsByType.get(type)
-    if (!records) throw new Error(`Model with name ${type} not defined`)
-    if (!records.has(id)) {
-      const resource = await fetcher!.fetchOne(type, id)
-      const newRecord = internalCreateRecord<T>(ctor, id, resource.attributes as Partial<InstanceType<T>>)
-      records.set(id, newRecord)
+    const recordsMap = recordsByType.get(type)
+    if (!recordsMap) throw new Error(`Model with name ${type} not defined`)
+    if (!recordsMap.has(id)) {
+      const doc = await fetcher!.fetchDocument(type, id)
+      const resource = doc.data as JsonApiResource
+      const records = resourcesToRecords(ctor, [resource], doc.included)
+      const record = records[0]
+      recordsMap.set(id, record)
     }
-    const record = records.get(id)
+    const record = recordsMap.get(id)
     if (!record) throw new Error(`Record with id ${id} not found`)
     return record as InstanceType<T>
   }

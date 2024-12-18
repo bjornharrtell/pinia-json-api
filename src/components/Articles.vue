@@ -1,17 +1,14 @@
 <script setup lang="ts">
 
 import { onMounted, shallowRef } from 'vue';
-import { useArticlesModels, useArticlesStore } from '../articles';
+import { useArticlesStore, Article } from '../articles.ts';
 
 const articlesStore = useArticlesStore()
-const { Article } = useArticlesModels()
 
 const articles = shallowRef<InstanceType<typeof Article>[]>([])
 
 onMounted(async () => {
   articles.value = await articlesStore.findAll(Article)
-  await articlesStore.findRelated(articles.value[0], 'comments')
-  await articlesStore.findRelated(articles.value[0], 'author')
 })
 
 </script>

@@ -1,10 +1,8 @@
 import { describe, expect, test, beforeEach } from 'vitest'
-import { useArticlesStore, useArticlesModels } from '../src/articles'
+import { useArticlesStore, Article, Person } from '../src/articles'
 import { createPinia, setActivePinia } from 'pinia'
 
 setActivePinia(createPinia())
-
-const { Article, Person } = useArticlesModels()
 
 describe('Pinia Data Store', () => {
   beforeEach(() => {
@@ -25,7 +23,7 @@ describe('Pinia Data Store', () => {
     const article = await findRecord(Article, '1')
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    await findRelated(article, 'comments')
+    //await findRelated(article, 'comments')
     expect(article.comments.length).toBe(2)
     expect(article.comments[0].body).toBe('First!')
     expect(article.comments[1].body).toBe('I like XML better')
@@ -38,11 +36,11 @@ describe('Pinia Data Store', () => {
     const article = articles[0]
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
-    await findRelated(article, 'comments')
+    //await findRelated(article, 'comments')
     expect(article.comments.length).toBe(2)
     expect(article.comments[0].body).toBe('First!')
     expect(article.comments[1].body).toBe('I like XML better')
-    await findRelated(article, 'author')
+    //await findRelated(article, 'author')
     expect(article.author?.firstName).toBe('Dan')
   })
 })

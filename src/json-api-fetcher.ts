@@ -7,11 +7,19 @@ function resolvePath(...segments: string[]): string {
   return new URL(segments.join('/')).href
 }
 
+export interface PageOption {
+  size?: number
+  number?: number
+}
+
 export interface FetchOptions {
   fields?: Record<string, string[]>
+  page?: PageOption
+  include?: string[]
 }
 
 export interface JsonApiFetcher {
+  fetchDocument(type: string, id?: string, options?: FetchOptions): Promise<JsonApiDocument>
   fetchOne(type: string, id: string): Promise<JsonApiResource>
   fetchAll(type: string, options?: FetchOptions): Promise<JsonApiResource[]>
   fetchHasMany(type: string, id: string, name: string, options?: FetchOptions): Promise<JsonApiResource[]>
@@ -28,20 +36,25 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     const headers = new Headers()
     headers.append('Accept', 'application/vnd.api+json')
     if (this.state) headers.append('Authorization', `Bearer ${this.state.value.token}`)
-    const requestOptions = {
-      searchParams,
-      headers,
-    }
+    const requestOptions = { searchParams, headers }
     if (options.fields)
       for (const [key, value] of Object.entries(options.fields))
         searchParams.append(`fields[${pluralize(key)}]`, value.join(','))
+    if (options.page?.size) searchParams.append('page[size]', options.page.size.toString())
+    if (options.page?.number) searchParams.append('page[number]', options.page.number.toString())
+    if (options.include) searchParams.append('include', options.include.join(','))
     return requestOptions
+  }
+  async fetchDocument(type: string, id?: string, options: FetchOptions = {}): Promise<JsonApiDocument> {
+    const segments = [this.endpoint, pluralize(type)]
+    if (id) segments.push(id)
+    const url = resolvePath(...segments)
+    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
+    return doc
   }
   async fetchAll(type: string, options: FetchOptions = {}): Promise<JsonApiResource[]> {
     const url = resolvePath(this.endpoint, pluralize(type))
-    const requestOptions = this.createOptions(options)
-    requestOptions.searchParams.append('page[size]', '10')
-    const doc = await ky.get(url, requestOptions).json<JsonApiDocument>()
+    const doc = await ky.get(url, this.createOptions(options)).json<JsonApiDocument>()
     const resources = doc.data as JsonApiResource[]
     return resources
   }
