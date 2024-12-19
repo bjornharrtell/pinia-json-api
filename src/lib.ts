@@ -1,5 +1,5 @@
-export { definePiniaJsonApiStore, Model, model, hasMany, belongsTo } from './pinia-json-api'
-export type { PiniaApiStoreDefinition, PiniaJsonApiStoreConfig, FindOptions } from './pinia-json-api'
+export { definePiniaJsonApiStore, Model } from './pinia-json-api'
+export type { PiniaApiStoreDefinition, PiniaJsonApiStoreConfig, ModelDefinition, FindOptions } from './pinia-json-api'
 export type { JsonApiFetcher, FetchOptions, PageOption } from './json-api-fetcher'
 export type {
   JsonApiDocument,

@@ -1,4 +1,4 @@
-import { belongsTo, definePiniaJsonApiStore, hasMany, model, Model } from '../pinia-json-api'
+import { definePiniaJsonApiStore, Model, type ModelDefinition } from '../pinia-json-api'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../json-api'
 import type { JsonApiFetcher } from '../json-api-fetcher'
 import doc from './articles.json'
@@ -25,7 +25,7 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
   }
   async fetchOne(_type: string, id: string): Promise<JsonApiResource> {
     const article = this.articles.find((a) => a.id === id)
-    if (!article) throw new Error(`Article ${id} not found`) 
+    if (!article) throw new Error(`Article ${id} not found`)
     return article
   }
   async fetchHasMany(_type: string, id: string, name: string) {
@@ -57,27 +57,41 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
   }
 }
 
-@model('person')
 export class Person extends Model {
   firstName?: string
   lastName?: string
   twitter?: string
 }
 
-@model('comment')
 export class Comment extends Model {
   body?: string
 }
 
-@model('article')
 export class Article extends Model {
   title?: string
-  @belongsTo(Person) author: Person | null = null
-  @hasMany(Comment) comments: Comment[] = []
+  author: Person | null = null
+  comments: Comment[] = []
 }
+
+const modelDefinitions: ModelDefinition[] = [
+  {
+    type: 'person',
+    ctor: Person,
+  },
+  {
+    type: 'comment',
+    ctor: Comment,
+  },
+  {
+    type: 'article',
+    ctor: Article,
+    belongsTo: new Map([['author', Person]]),
+    hasMany: new Map([['comments', Comment]]),
+  },
+]
 
 export const useArticlesStore = definePiniaJsonApiStore(
   'articles',
-  { endpoint: 'http://localhost:3000', models: [Person, Comment, Article] },
+  { endpoint: 'http://localhost:3000', modelDefinitions },
   new JsonApiFetcherArticles(),
 )

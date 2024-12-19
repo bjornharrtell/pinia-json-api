@@ -11,55 +11,39 @@ export class Model {
   [key: string]: any
 }
 
+export interface ModelDefinition {
+  type: string,
+  ctor: typeof Model
+  hasMany?: Map<string, typeof Model>
+  belongsTo?: Map<string, typeof Model>
+}
+
 export interface PiniaJsonApiStoreConfig {
   endpoint: string
-  models: typeof Model[]
+  modelDefinitions: ModelDefinition[]
   state?: ComputedRef<{ token: string }>
 }
 
 export interface FindOptions extends FetchOptions {}
 
-const modelRegistry = shallowReactive(new Map<typeof Model, string>())
-const modelsByType = shallowReactive(new Map<string, typeof Model>())
-const hasManyRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
-const belongsToRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
-
-export function model(type: string) {
-  return function (value: typeof Model) {
-    modelRegistry.set(value, type)
-    modelsByType.set(type, value)
-  }
-}
-
-export function hasMany(ctor: typeof Model) {
-  return function (_target: undefined, context: ClassFieldDecoratorContext) {
-    let isRegistred = false
-    return function (this: any): any {
-      if (isRegistred) return
-      hasManyRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
-      isRegistred = true
-    }
-  }
-}
-
-export function belongsTo(ctor: typeof Model) {
-  return function (_target: undefined, context: ClassFieldDecoratorContext) {
-    let isRegistred = false
-    return function (this: any): any {
-      if (isRegistred) return
-      belongsToRegistry.set(this.constructor as typeof Model, new Map([[context.name as string, ctor]]))
-      isRegistred = true
-    }
-  }
-}
-
 export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
 
+  const modelRegistry = shallowReactive(new Map<typeof Model, string>())
+  const modelsByType = shallowReactive(new Map<string, typeof Model>())
+  const hasManyRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
+  const belongsToRegistry = shallowReactive(new Map<typeof Model, Map<string, typeof Model>>())
+
   const recordsByType = shallowReactive(new Map<string, Map<string, Model>>())
 
-  for (const model of config.models)
-    recordsByType.set(modelRegistry.get(model)!, new Map<string, Model>())
+  for (const modelDef of config.modelDefinitions) {
+    const ctor = modelDef.ctor
+    modelRegistry.set(ctor, modelDef.type)
+    modelsByType.set(modelDef.type, ctor)
+    if (modelDef.hasMany) hasManyRegistry.set(ctor, modelDef.hasMany)
+    if (modelDef.belongsTo) belongsToRegistry.set(ctor, modelDef.belongsTo)
+      recordsByType.set(modelDef.type, new Map<string, Model>())
+  }
 
   function generateId(): string {
     return Math.random().toString(36).substr(2, 9)
