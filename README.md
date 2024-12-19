@@ -1,8 +1,8 @@
-# pinia-data
+# pinia-json-api
 
-Pinia Data extends Pinia Store with capabilities to fetch typed data models via an JSON:API endpoint into record instances.
+pinia-json-api extends Pinia Store with capabilities to fetch typed data models via an JSON:API endpoint into record instances.
 
-A Pinia Data Store is defined with an endpoint and model definitions and the store instance API provides methods `findAll`, `findRecord` to fetch record(s). Pinia Store will automatically resolve included relationships. If relationships for a record are not included they can be fetched later using `findRelated`.
+A PiniaApiStore is defined with an endpoint and model definitions and the store instance API provides methods `findAll`, `findRecord` to fetch record(s). PiniaApiStore will automatically resolve included relationships. If relationships for a record are not included they can be fetched later using `findRelated`.
 
 Records are shallowReactive and if previously fetched they will be updated by subsequent fetches.
 
@@ -11,7 +11,7 @@ Records are shallowReactive and if previously fetched they will be updated by su
 A service returning the canonical example JSON:API document at https://jsonapi.org/ can be consumed by a store defined in this way:
 
 ```ts
-import { definePiniaDataStore, Model, model, belongsTo, hasMany } from 'pinia-data'
+import { definePiniaJsonApiStore, Model, model, belongsTo, hasMany } from 'pinia-json-api'
 
 @model('person')
 export class Person extends Model {
@@ -32,7 +32,7 @@ export class Article extends Model {
   @hasMany(Comment) comments: Comment[] = []
 }
 
-export const useArticlesStore = definePiniaDataStore('articles', {
+export const useArticlesStore = definePiniaJsonApiStore('articles', {
   endpoint: 'http://localhost/api',
   models: [Person, Comment, Article]
 })

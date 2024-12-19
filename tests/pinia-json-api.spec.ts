@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 setActivePinia(createPinia())
 
-describe('Pinia Data Store', () => {
+describe('PiniaJsonApiStore', () => {
   beforeEach(() => {
     const { unloadAll } = useArticlesStore()
     unloadAll()

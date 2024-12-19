@@ -1,2 +1,2 @@
-export { definePiniaDataStore, Model, model, hasMany, belongsTo } from './pinia-data'
-export type { PiniaApiStoreDefinition, PiniaDataStoreConfig, FindOptions } from './pinia-data'
+export { definePiniaJsonApiStore, Model, model, hasMany, belongsTo } from './pinia-json-api'
+export type { PiniaApiStoreDefinition, PiniaJsonApiStoreConfig, FindOptions } from './pinia-json-api'

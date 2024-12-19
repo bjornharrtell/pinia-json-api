@@ -1,4 +1,4 @@
-import { belongsTo, definePiniaDataStore, hasMany, model, Model } from '../pinia-data'
+import { belongsTo, definePiniaJsonApiStore, hasMany, model, Model } from '../pinia-json-api'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../json-api'
 import type { JsonApiFetcher } from '../json-api-fetcher'
 import doc from './articles.json'
@@ -76,7 +76,7 @@ export class Article extends Model {
   @hasMany(Comment) comments: Comment[] = []
 }
 
-export const useArticlesStore = definePiniaDataStore(
+export const useArticlesStore = definePiniaJsonApiStore(
   'articles',
   { endpoint: 'http://localhost:3000', models: [Person, Comment, Article] },
   new JsonApiFetcherArticles(),

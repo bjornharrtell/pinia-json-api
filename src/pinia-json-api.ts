@@ -11,7 +11,7 @@ export class Model {
   [key: string]: any
 }
 
-export interface PiniaDataStoreConfig {
+export interface PiniaJsonApiStoreConfig {
   endpoint: string
   models: typeof Model[]
   state?: ComputedRef<{ token: string }>
@@ -53,7 +53,7 @@ export function belongsTo(ctor: typeof Model) {
   }
 }
 
-export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig, fetcher?: JsonApiFetcher) {
+export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreConfig, fetcher?: JsonApiFetcher) {
   if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
 
   const recordsByType = shallowReactive(new Map<string, Map<string, Model>>())
@@ -185,4 +185,4 @@ export function definePiniaDataStore(name: string, config: PiniaDataStoreConfig,
   })
 }
 
-export type PiniaApiStoreDefinition = ReturnType<typeof definePiniaDataStore>
+export type PiniaApiStoreDefinition = ReturnType<typeof definePiniaJsonApiStore>
