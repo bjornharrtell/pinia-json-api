@@ -127,13 +127,13 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return { doc, records }
   }
 
-  async function findRecord<T extends typeof Model>(ctor: T, id: string) {
+  async function findRecord<T extends typeof Model>(ctor: T, id: string, options?: FindOptions) {
     const type = modelRegistry.get(ctor)
     if (!type) throw new Error(`Model ${ctor.name} not defined`)
     const recordsMap = recordsByType.get(type)
     if (!recordsMap) throw new Error(`Model with name ${type} not defined`)
     if (!recordsMap.has(id)) {
-      const doc = await fetcher!.fetchDocument(type, id)
+      const doc = await fetcher!.fetchDocument(type, id, options)
       const resource = doc.data as JsonApiResource
       const records = resourcesToRecords(ctor, [resource], doc.included)
       const record = records[0]

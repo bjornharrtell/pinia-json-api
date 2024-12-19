@@ -20,18 +20,19 @@ describe('PiniaJsonApiStore', () => {
 
   test('single record fetch', async () => {
     const { findRecord, findRelated } = useArticlesStore()
-    const article = await findRecord(Article, '1')
+    const article = await findRecord(Article, '1', { include: ['comments', 'author'] })
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
     //await findRelated(article, 'comments')
     expect(article.comments.length).toBe(2)
     expect(article.comments[0].body).toBe('First!')
     expect(article.comments[1].body).toBe('I like XML better')
+    expect(article.author?.firstName).toBe('Dan')
   })
 
   test('all records fetch', async () => {
     const { findAll, findRelated } = useArticlesStore()
-    const { records: articles } = await findAll(Article)
+    const { records: articles } = await findAll(Article, { include: ['comments', 'author'] })
     expect(articles.length).toBe(1)
     const article = articles[0]
     expect(article.id).toBe('1')
