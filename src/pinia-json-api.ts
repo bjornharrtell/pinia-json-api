@@ -12,7 +12,7 @@ export class Model {
 }
 
 export interface ModelDefinition {
-  type: string,
+  type: string
   ctor: typeof Model
   hasMany?: Map<string, typeof Model>
   belongsTo?: Map<string, typeof Model>
@@ -42,7 +42,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     modelsByType.set(modelDef.type, ctor)
     if (modelDef.hasMany) hasManyRegistry.set(ctor, modelDef.hasMany)
     if (modelDef.belongsTo) belongsToRegistry.set(ctor, modelDef.belongsTo)
-      recordsByType.set(modelDef.type, new Map<string, Model>())
+    recordsByType.set(modelDef.type, new Map<string, Model>())
   }
 
   function generateId(): string {
@@ -68,31 +68,46 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return record as InstanceType<T>
   }
 
+  function getRecords(type: string) {
+    const records = recordsByType.get(type)
+    if (!records) throw new Error(`Model with name ${type} not defined`)
+    return records
+  }
+
+  function getRecord(records: Map<string, Model>, id: string) {
+    const record = records.get(id)
+    if (!record) throw new Error(`Record with id ${id} not found`)
+    return record
+  }
+
   function resourcesToRecords<T extends typeof Model>(
     ctor: T,
     resources: JsonApiResource[],
     included?: JsonApiResource[],
   ) {
     if (included)
-      included.map((r) => {
+      included.map((r) =>
         internalCreateRecord<T>(
           modelsByType.get(singularize(r.type))! as T,
           r.id,
           r.attributes as Partial<InstanceType<T>>,
-        )
-      })
+        ),
+      )
+    resources.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>))
+    const type = modelRegistry.get(ctor)!
+    const recordsMap = getRecords(type)
     const records = resources.map((r) => {
-      const record = internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>) as Model
+      const record = getRecord(recordsMap, r.id)
       if (included && r.relationships)
         for (const [name, rel] of Object.entries(r.relationships)) {
           if (hasManyRegistry.get(ctor)?.has(name)) {
             const relType = modelRegistry.get(hasManyRegistry.get(ctor)?.get(name)!)!
-            const relTypeRecords = recordsByType.get(relType)
-            const relRecords = (rel.data as JsonApiResourceIdentifier[]).map((d) => relTypeRecords?.get(d.id))
+            const relTypeRecords = getRecords(relType)
+            const relRecords = (rel.data as JsonApiResourceIdentifier[]).map((d) => getRecord(relTypeRecords, d.id))
             record[name] = relRecords
           } else if (belongsToRegistry.get(ctor)?.has(name)) {
             const relType = modelRegistry.get(belongsToRegistry.get(ctor)?.get(name)!)!
-            const relTypeRecords = recordsByType.get(relType)
+            const relTypeRecords = getRecords(relType)
             const relRecord = relTypeRecords?.get((rel.data as JsonApiResourceIdentifier).id)
             record[name] = relRecord
           }
