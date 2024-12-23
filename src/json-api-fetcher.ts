@@ -11,11 +11,18 @@ export interface PageOption {
   number?: number
 }
 
-export interface FetchOptions {
+export interface FetchOptionsBase {
   fields?: Record<string, string[]>
   page?: PageOption
   include?: string[]
+  filter?: string
 }
+
+interface FetchOptionsExtra {
+  [key: string]: string
+}
+
+export type FetchOptions = FetchOptionsBase & FetchOptionsExtra
 
 export interface JsonApiFetcher {
   fetchDocument(type: string, id?: string, options?: FetchOptions): Promise<JsonApiDocument>
@@ -26,10 +33,7 @@ export interface JsonApiFetcher {
 }
 
 export class JsonApiFetcherImpl implements JsonApiFetcher {
-  constructor(
-    private endpoint: string,
-    private state?: ComputedRef<{ token: string }>,
-  ) {}
+  constructor(private endpoint: string, private state?: ComputedRef<{ token: string }>) {}
   createOptions(options: FetchOptions = {}) {
     const searchParams = new URLSearchParams()
     const headers = new Headers()
@@ -41,6 +45,10 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     if (options.page?.size) searchParams.append('page[size]', options.page.size.toString())
     if (options.page?.number) searchParams.append('page[number]', options.page.number.toString())
     if (options.include) searchParams.append('include', options.include.join(','))
+    const knownKeys = ['fields', 'page', 'include', 'filter'] as const
+    for (const [key, value] of Object.entries(options))
+      if (!knownKeys.includes(key as (typeof knownKeys)[number]) && typeof value === 'string')
+        searchParams.append(key, value)
     return requestOptions
   }
   async fetchDocument(type: string, id?: string, options: FetchOptions = {}) {

@@ -23,7 +23,7 @@ export interface PiniaJsonApiStoreConfig {
   state?: ComputedRef<{ token: string }>
 }
 
-export interface FindOptions extends FetchOptions {}
+export type FindOptions = FetchOptions
 
 export interface PiniaJsonApiStore {
   /**
