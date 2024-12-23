@@ -1,7 +1,6 @@
 <script setup lang="ts">
-
-import { onMounted, shallowRef } from 'vue';
-import { useArticlesStore, Article } from '../stores/articles.ts';
+import { onMounted, shallowRef } from 'vue'
+import { Article, useArticlesStore } from '../stores/articles.ts'
 
 const articlesStore = useArticlesStore()
 
@@ -11,7 +10,6 @@ onMounted(async () => {
   const { records } = await articlesStore.findAll(Article)
   articles.value = records
 })
-
 </script>
 
 <template>

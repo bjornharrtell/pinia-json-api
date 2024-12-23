@@ -1,14 +1,13 @@
 import { defineStore } from 'pinia'
 import { type ComputedRef, type ShallowReactive, shallowReactive } from 'vue'
-import { JsonApiFetcherImpl, type FetchOptions, type JsonApiFetcher } from './json-api-fetcher'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
-import { singularize } from 'inflection'
+import { type FetchOptions, type JsonApiFetcher, JsonApiFetcherImpl } from './json-api-fetcher'
 
 export class Model {
   constructor(public id: string) {
     this.id = id
   }
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface ModelDefinition {
@@ -68,12 +67,10 @@ export interface PiniaJsonApiStore {
   unloadAll(): void
 }
 
-export interface PiniaJsonApiStoreUseFunction {
-  (): PiniaJsonApiStore
-}
+export type PiniaJsonApiStoreUseFunction = () => PiniaJsonApiStore
 
 export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreConfig, fetcher?: JsonApiFetcher) {
-  if (!fetcher) fetcher = new JsonApiFetcherImpl(config.endpoint, config.state)
+  const _fetcher = fetcher ?? new JsonApiFetcherImpl(config.endpoint, config.state)
 
   const modelRegistry = shallowReactive(new Map<typeof Model, string>())
   const modelsByType = shallowReactive(new Map<string, typeof Model>())
@@ -96,22 +93,31 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
   }
 
   function createRecord<T extends typeof Model>(ctor: T, properties: Partial<InstanceType<T>> & { id?: string }) {
-    const type = modelRegistry.get(ctor)
-    if (!type) throw new Error(`Model ${type} not defined`)
+    const type = getModelType(ctor)
     const id = properties.id || generateId()
     return internalCreateRecord(ctor, id, properties) as InstanceType<T>
   }
 
   function internalCreateRecord<T extends typeof Model>(ctor: T, id: string, properties?: Partial<InstanceType<T>>) {
-    const type = modelRegistry.get(ctor)
-    if (!type) throw new Error(`Model ${type} not defined`)
-    const recordMap = recordsByType.get(type)
-    if (!recordMap) throw new Error(`Model ${type} not defined`)
+    const type = getModelType(ctor)
+    const recordMap = getRecords(type)
     let record = recordMap.get(id)
     if (!record) record = shallowReactive<InstanceType<T>>(new ctor(id) as InstanceType<T>)
     if (properties) for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[key] = value
     recordMap.set(id, record)
     return record as InstanceType<T>
+  }
+
+  function getModelType(ctor: typeof Model) {
+    const type = modelRegistry.get(ctor)
+    if (!type) throw new Error(`Model ${ctor.name} not defined`)
+    return type
+  }
+
+  function getModel(type: string) {
+    const ctor = modelsByType.get(type)
+    if (!ctor) throw new Error(`Model with name ${type} not defined`)
+    return ctor
   }
 
   function getRecords(type: string) {
@@ -133,7 +139,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
   ) {
     function createRecord<T extends typeof Model>(resource: JsonApiResource) {
       return internalCreateRecord<T>(
-        modelsByType.get(singularize(resource.type))! as T,
+        getModel(resource.type) as T,
         resource.id,
         resource.attributes as Partial<InstanceType<T>>,
       )
@@ -143,19 +149,23 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     // create records for main resources
     resources.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>))
     // populate relationships
-    const type = modelRegistry.get(ctor)!
+    const type = getModelType(ctor)
     const recordsMap = getRecords(type)
     function populateRelationships(resource: JsonApiResource) {
       const record = getRecord(recordsMap, resource.id)
       if (!included || !resource.relationships) return record
       for (const [name, rel] of Object.entries(resource.relationships)) {
         if (hasManyRegistry.get(ctor)?.has(name)) {
-          const relType = modelRegistry.get(hasManyRegistry.get(ctor)?.get(name)!)!
+          const relCtor = hasManyRegistry.get(ctor)?.get(name)
+          if (!relCtor) throw new Error(`Has many relationship ${name} not defined`)
+          const relType = getModelType(relCtor)
           const relTypeRecords = getRecords(relType)
           const relRecords = (rel.data as JsonApiResourceIdentifier[]).map((d) => getRecord(relTypeRecords, d.id))
           record[name] = relRecords
         } else if (belongsToRegistry.get(ctor)?.has(name)) {
-          const relType = modelRegistry.get(belongsToRegistry.get(ctor)?.get(name)!)!
+          const relCtor = belongsToRegistry.get(ctor)?.get(name)
+          if (!relCtor) throw new Error(`Belongs to relationship ${name} not defined`)
+          const relType = getModelType(relCtor)
           const relTypeRecords = getRecords(relType)
           const relRecord = relTypeRecords?.get((rel.data as JsonApiResourceIdentifier).id)
           record[name] = relRecord
@@ -169,21 +179,18 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
   }
 
   async function findAll<T extends typeof Model>(ctor: T, options?: FindOptions) {
-    const type = modelRegistry.get(ctor)
-    if (!type) throw new Error(`Model ${ctor.name} not defined`)
-    const doc = await fetcher!.fetchDocument(type, undefined, options)
+    const type = getModelType(ctor)
+    const doc = await _fetcher.fetchDocument(type, undefined, options)
     const resources = doc.data as JsonApiResource[]
     const records = resourcesToRecords(ctor, resources, doc.included)
     return { doc, records }
   }
 
   async function findRecord<T extends typeof Model>(ctor: T, id: string, options?: FindOptions) {
-    const type = modelRegistry.get(ctor)
-    if (!type) throw new Error(`Model ${ctor.name} not defined`)
-    const recordsMap = recordsByType.get(type)
-    if (!recordsMap) throw new Error(`Model with name ${type} not defined`)
+    const type = getModelType(ctor)
+    const recordsMap = getRecords(type)
     if (!recordsMap.has(id)) {
-      const doc = await fetcher!.fetchDocument(type, id, options)
+      const doc = await _fetcher.fetchDocument(type, id, options)
       const resource = doc.data as JsonApiResource
       const records = resourcesToRecords(ctor, [resource], doc.included)
       const record = records[0]
@@ -196,18 +203,22 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
 
   async function findRelated(record: Model, name: string, options?: FindOptions) {
     const ctor = record.constructor as typeof Model
-    const type = modelRegistry.get(ctor)
-    if (!type) throw new Error(`Model ${record.constructor.name} not defined`)
-    if (hasManyRegistry.has(ctor) && hasManyRegistry.get(ctor)!.has(name)) {
-      const relCtor = hasManyRegistry.get(ctor)!.get(name)!
-      const doc = await fetcher!.fetchHasMany(type, record.id, name, options)
+    const type = getModelType(ctor)
+    const hasManyRel = hasManyRegistry.get(ctor)
+    if (hasManyRel?.has(name)) {
+      const relCtor = hasManyRel.get(name)
+      if (!relCtor) throw new Error(`Has many relationship ${name} not defined`)
+      const doc = await _fetcher.fetchHasMany(type, record.id, name, options)
       const related = doc.data as JsonApiResource[]
       const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
       record[name] = relatedRecords
       return doc
-    } else if (belongsToRegistry.has(ctor) && belongsToRegistry.get(ctor)!.has(name)) {
-      const relCtor = belongsToRegistry.get(ctor)!.get(name)!
-      const doc = await fetcher!.fetchBelongsTo(type, record.id, name, options)
+    }
+    const belongsToRel = belongsToRegistry.get(ctor)
+    if (belongsToRel?.has(name)) {
+      const relCtor = belongsToRel.get(name)
+      if (!relCtor) throw new Error(`Belongs to relationship ${name} not defined`)
+      const doc = await _fetcher.fetchBelongsTo(type, record.id, name, options)
       const related = doc.data as JsonApiResource
       const relatedRecord = internalCreateRecord(relCtor, related.id, related.attributes)
       record[name] = relatedRecord

@@ -10,8 +10,24 @@ export interface JsonApiRelationship {
 export interface JsonApiResource {
   id: string
   type: string
-  attributes: Record<string, any>
+  attributes: Record<string, unknown>
   relationships: Record<string, JsonApiRelationship>
+}
+
+export interface JsonApiMeta {
+  // Pagination
+  totalPages?: number
+  totalItems?: number
+  currentPage?: number
+  itemsPerPage?: number
+
+  // Common metadata
+  timestamp?: string | number
+  version?: string
+  copyright?: string
+
+  // Allow additional custom properties
+  [key: string]: unknown
 }
 
 export interface JsonApiLinkObject {
@@ -21,7 +37,7 @@ export interface JsonApiLinkObject {
   title?: string
   type?: string
   hreflang?: string | string[]
-  meta?: any
+  meta?: JsonApiMeta
 }
 
 export type JsonApiLink = null | string | JsonApiLinkObject
@@ -40,5 +56,5 @@ export interface JsonApiDocument {
   links?: JsonApiLinks
   data: JsonApiResource | JsonApiResource[]
   included?: JsonApiResource[]
-  meta?: any
+  meta?: JsonApiMeta
 }

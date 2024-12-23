@@ -1,6 +1,6 @@
-import { definePiniaJsonApiStore, Model, type ModelDefinition } from '../pinia-json-api'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../json-api'
 import type { JsonApiFetcher } from '../json-api-fetcher'
+import { Model, type ModelDefinition, definePiniaJsonApiStore } from '../pinia-json-api'
 import doc from './articles.json'
 
 export class JsonApiFetcherArticles implements JsonApiFetcher {
@@ -13,11 +13,14 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     this.included = this.doc.included as JsonApiResource[]
   }
   async fetchDocument(_type: string, id?: string): Promise<JsonApiDocument> {
-    if (id)
+    if (id) {
+      const data = this.articles.find((a) => a.id === id)
+      if (!data) throw new Error(`Article ${id} not found`)
       return {
-        data: this.articles.find((a) => a.id === id)!,
+        data,
         included: this.included,
       }
+    }
     return this.doc
   }
   async fetchAll(_type: string): Promise<JsonApiResource[]> {
@@ -75,15 +78,15 @@ export class Article extends Model {
 
 const modelDefinitions: ModelDefinition[] = [
   {
-    type: 'person',
+    type: 'people',
     ctor: Person,
   },
   {
-    type: 'comment',
+    type: 'comments',
     ctor: Comment,
   },
   {
-    type: 'article',
+    type: 'articles',
     ctor: Article,
     belongsTo: new Map([['author', Person]]),
     hasMany: new Map([['comments', Comment]]),

@@ -1,6 +1,6 @@
-import { describe, expect, test, beforeEach } from 'vitest'
-import { useArticlesStore, Article, Person } from '../src/stores/articles'
 import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, test } from 'vitest'
+import { Article, Person, useArticlesStore } from '../src/stores/articles'
 
 setActivePinia(createPinia())
 
@@ -20,7 +20,9 @@ describe('PiniaJsonApiStore', () => {
 
   test('single record fetch', async () => {
     const { findRecord, findRelated } = useArticlesStore()
-    const article = await findRecord(Article, '1', { include: ['comments', 'author'] })
+    const article = await findRecord(Article, '1', {
+      include: ['comments', 'author'],
+    })
     expect(article.id).toBe('1')
     expect(article.title).toBe('JSON:API paints my bikeshed!')
     //await findRelated(article, 'comments')
@@ -32,7 +34,9 @@ describe('PiniaJsonApiStore', () => {
 
   test('all records fetch', async () => {
     const { findAll, findRelated } = useArticlesStore()
-    const { records: articles } = await findAll(Article, { include: ['comments', 'author'] })
+    const { records: articles } = await findAll(Article, {
+      include: ['comments', 'author'],
+    })
     expect(articles.length).toBe(1)
     const article = articles[0]
     expect(article.id).toBe('1')

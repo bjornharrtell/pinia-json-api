@@ -9,10 +9,7 @@
     ".": "./dist/lib.js",
     "./*": "./src/*"
   },
-  "files": [
-    "README.md",
-    "dist"
-  ],
+  "files": ["README.md", "dist"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bjornharrtell/pinia-json-api.git"
@@ -26,12 +23,12 @@
     "typedoc": "typedoc"
   },
   "dependencies": {
-    "inflection": "^3.0.0",
     "ky": "^1.7.4",
     "pinia": "^2.3.0",
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@tsconfig/node22": "^22.0.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.10.2",

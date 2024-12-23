@@ -10,5 +10,11 @@
     {
       "path": "./tsconfig.vitest.json"
     }
-  ]
+  ],
+  "compilerOptions": {
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noImplicitAny": true,
+    "strict": true
+  }
 }

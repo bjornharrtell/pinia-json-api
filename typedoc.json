@@ -2,5 +2,5 @@
   "out": "dist/docs",
   "entryPoints": ["src/lib.ts"],
   "excludeInternal": true,
-  "tsconfig": "tsconfig.typedoc.json",
+  "tsconfig": "tsconfig.typedoc.json"
 }
