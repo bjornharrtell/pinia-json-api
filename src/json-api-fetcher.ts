@@ -58,6 +58,7 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     if (options.page?.size) searchParams.append('page[size]', options.page.size.toString())
     if (options.page?.number) searchParams.append('page[number]', options.page.number.toString())
     if (options.include) searchParams.append('include', options.include.join(','))
+    if (options.filter) searchParams.append('filter', options.filter)
     for (const [key, value] of Object.entries(params)) searchParams.append(key, value)
     return requestOptions
   }
