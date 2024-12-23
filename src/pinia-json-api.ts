@@ -136,6 +136,12 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return record
   }
 
+  function getResourceRecord(resource: JsonApiResource) {
+    const recordsMap = getRecords(resource.type)
+    const record = getRecord(recordsMap, resource.id)
+    return record
+  }
+
   function resourcesToRecords<T extends typeof Model>(
     ctor: T,
     resources: JsonApiResource[],
@@ -151,13 +157,11 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     // create records for included resources
     if (included) for (const resource of included) createRecord(resource)
     // create records for main resources
-    resources.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>))
+    const records = resources.map((r) => internalCreateRecord<T>(ctor, r.id, r.attributes as Partial<InstanceType<T>>))
     // populate relationships
-    const type = getModelType(ctor)
-    const recordsMap = getRecords(type)
     function populateRelationships(resource: JsonApiResource) {
-      const record = getRecord(recordsMap, resource.id)
-      if (!included || !resource.relationships) return record
+      const record = getResourceRecord(resource)
+      if (!resource.relationships) return
       for (const [name, rel] of Object.entries(resource.relationships)) {
         if (hasManyRegistry.get(ctor)?.has(name)) {
           const relCtor = hasManyRegistry.get(ctor)?.get(name)
@@ -176,9 +180,11 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
         }
         // NOTE: if relationship is not defined but exists in data, it is ignored
       }
-      return record
     }
-    const records = resources.map(populateRelationships)
+    if (included) {
+      resources.map(populateRelationships)
+      included.map(populateRelationships)
+    }
     return records as InstanceType<T>[]
   }
 
