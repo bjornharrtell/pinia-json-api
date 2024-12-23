@@ -4,13 +4,11 @@ export type {
   PiniaJsonApiStoreUseFunction,
   PiniaJsonApiStoreConfig,
   ModelDefinition,
-  FindOptions,
 } from './pinia-json-api'
 export type {
   JsonApiFetcher,
-  FetchOptionsBase,
-  FetchOptionsExtra,
   FetchOptions,
+  FetchParams,
   PageOption,
 } from './json-api-fetcher'
 export type {

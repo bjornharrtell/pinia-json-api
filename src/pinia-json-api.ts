@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { type ComputedRef, type ShallowReactive, shallowReactive } from 'vue'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
-import { type FetchOptions, type JsonApiFetcher, JsonApiFetcherImpl } from './json-api-fetcher'
+import { type FetchOptions, type FetchParams, type JsonApiFetcher, JsonApiFetcherImpl } from './json-api-fetcher'
 
 export class Model {
   constructor(public id: string) {
@@ -22,8 +22,6 @@ export interface PiniaJsonApiStoreConfig {
   modelDefinitions: ModelDefinition[]
   state?: ComputedRef<{ token: string }>
 }
-
-export type FindOptions = FetchOptions
 
 export interface PiniaJsonApiStore {
   /**
@@ -52,18 +50,24 @@ export interface PiniaJsonApiStore {
    */
   findAll<T extends typeof Model>(
     ctor: T,
-    options?: FindOptions,
+    options?: FetchOptions,
+    params?: FetchParams,
   ): Promise<{ doc: JsonApiDocument; records: InstanceType<T>[] }>
   /**
    * Find a single record by id
    * @returns the record that was found
    */
-  findRecord<T extends typeof Model>(ctor: T, id: string, options?: FindOptions): Promise<InstanceType<T>>
+  findRecord<T extends typeof Model>(
+    ctor: T,
+    id: string,
+    options?: FetchOptions,
+    params?: FetchParams,
+  ): Promise<InstanceType<T>>
   /**
    * Find related records for a given record and relationship name
    * @returns the JSON API document that was fetched
    */
-  findRelated(record: Model, name: string, options?: FindOptions): Promise<JsonApiDocument>
+  findRelated(record: Model, name: string, options?: FetchOptions, params?: FetchParams): Promise<JsonApiDocument>
   unloadAll(): void
 }
 
@@ -178,7 +182,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return records as InstanceType<T>[]
   }
 
-  async function findAll<T extends typeof Model>(ctor: T, options?: FindOptions) {
+  async function findAll<T extends typeof Model>(ctor: T, options?: FetchOptions, params?: FetchParams) {
     const type = getModelType(ctor)
     const doc = await _fetcher.fetchDocument(type, undefined, options)
     const resources = doc.data as JsonApiResource[]
@@ -186,7 +190,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return { doc, records }
   }
 
-  async function findRecord<T extends typeof Model>(ctor: T, id: string, options?: FindOptions) {
+  async function findRecord<T extends typeof Model>(ctor: T, id: string, options?: FetchOptions, params?: FetchParams) {
     const type = getModelType(ctor)
     const recordsMap = getRecords(type)
     if (!recordsMap.has(id)) {
@@ -201,7 +205,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return record as InstanceType<T>
   }
 
-  async function findRelated(record: Model, name: string, options?: FindOptions) {
+  async function findRelated(record: Model, name: string, options?: FetchOptions, params?: FetchParams) {
     const ctor = record.constructor as typeof Model
     const type = getModelType(ctor)
     const hasManyRel = hasManyRegistry.get(ctor)
