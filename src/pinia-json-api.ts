@@ -184,7 +184,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
 
   async function findAll<T extends typeof Model>(ctor: T, options?: FetchOptions, params?: FetchParams) {
     const type = getModelType(ctor)
-    const doc = await _fetcher.fetchDocument(type, undefined, options)
+    const doc = await _fetcher.fetchDocument(type, undefined, options, params)
     const resources = doc.data as JsonApiResource[]
     const records = resourcesToRecords(ctor, resources, doc.included)
     return { doc, records }
@@ -194,7 +194,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     const type = getModelType(ctor)
     const recordsMap = getRecords(type)
     if (!recordsMap.has(id)) {
-      const doc = await _fetcher.fetchDocument(type, id, options)
+      const doc = await _fetcher.fetchDocument(type, id, options, params)
       const resource = doc.data as JsonApiResource
       const records = resourcesToRecords(ctor, [resource], doc.included)
       const record = records[0]
@@ -212,7 +212,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     if (hasManyRel?.has(name)) {
       const relCtor = hasManyRel.get(name)
       if (!relCtor) throw new Error(`Has many relationship ${name} not defined`)
-      const doc = await _fetcher.fetchHasMany(type, record.id, name, options)
+      const doc = await _fetcher.fetchHasMany(type, record.id, name, options, params)
       const related = doc.data as JsonApiResource[]
       const relatedRecords = related.map((r) => internalCreateRecord(relCtor, r.id, r.attributes))
       record[name] = relatedRecords
@@ -222,7 +222,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     if (belongsToRel?.has(name)) {
       const relCtor = belongsToRel.get(name)
       if (!relCtor) throw new Error(`Belongs to relationship ${name} not defined`)
-      const doc = await _fetcher.fetchBelongsTo(type, record.id, name, options)
+      const doc = await _fetcher.fetchBelongsTo(type, record.id, name, options, params)
       const related = doc.data as JsonApiResource
       const relatedRecord = internalCreateRecord(relCtor, related.id, related.attributes)
       record[name] = relatedRecord
