@@ -8,6 +8,8 @@ export type {
 } from './pinia-json-api'
 export type {
   JsonApiFetcher,
+  FetchOptionsBase,
+  FetchOptionsExtra,
   FetchOptions,
   PageOption,
 } from './json-api-fetcher'
@@ -19,4 +21,5 @@ export type {
   JsonApiLinks,
   JsonApiLink,
   JsonApiLinkObject,
+  JsonApiMeta,
 } from './json-api'

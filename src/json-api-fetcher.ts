@@ -18,7 +18,7 @@ export interface FetchOptionsBase {
   filter?: string
 }
 
-interface FetchOptionsExtra {
+export interface FetchOptionsExtra {
   [key: string]: string
 }
 
