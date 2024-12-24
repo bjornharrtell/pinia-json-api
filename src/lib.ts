@@ -1,11 +1,10 @@
-export { definePiniaJsonApiStore, Model } from './pinia-json-api'
+export { definePiniaJsonApiStore, Model, RelationshipType } from './pinia-json-api'
 export type {
   PiniaJsonApiStore,
   PiniaJsonApiStoreUseFunction,
   PiniaJsonApiStoreConfig,
   ModelDefinition,
-  Relationship,
-  RelationshipType
+  Relationship
 } from './pinia-json-api'
 export type {
   JsonApiFetcher,
