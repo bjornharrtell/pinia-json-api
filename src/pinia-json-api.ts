@@ -133,7 +133,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
   }
 
   function camel(str: string) {
-    if (config.kebabCase) return str.replace(/[-][a-z\u00E0-\u00F6\u00F8-\u00FE]/g, (_, letter) => letter.toUpperCase())
+    if (config.kebabCase) return str.replace(/[-][a-z\u00E0-\u00F6\u00F8-\u00FE]/g, match => match.slice(1).toUpperCase())
     return str
   }
 
