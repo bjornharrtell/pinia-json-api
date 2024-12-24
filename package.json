@@ -1,6 +1,6 @@
 {
   "name": "@bjornharrtell/pinia-json-api",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "type": "module",
   "main": "./dist/lib.js",
   "module": "./dist/lib.js",
@@ -37,9 +37,9 @@
     "@vue/tsconfig": "^0.7.0",
     "typedoc": "^0.27.5",
     "typescript": "~5.6.3",
-    "vite": "^6.0.4",
+    "vite": "^6.0.5",
     "vite-plugin-dts": "^4.4.0",
     "vitest": "^2.1.8",
-    "vue-tsc": "^2.1.10"
+    "vue-tsc": "^2.2.0"
   }
 }
