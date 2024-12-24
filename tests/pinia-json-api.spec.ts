@@ -45,6 +45,7 @@ describe('PiniaJsonApiStore', () => {
     expect(article.comments.length).toBe(2)
     expect(article.comments[0].body).toBe('First!')
     expect(article.comments[1].body).toBe('I like XML better')
+    expect(article.comments[1].author?.firstName).toBe('Dan')
     //await findRelated(article, 'author')
     expect(article.author?.firstName).toBe('Dan')
   })

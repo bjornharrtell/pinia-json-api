@@ -11,7 +11,7 @@ Records are shallowReactive and if previously fetched they will be updated by su
 A service returning the canonical example JSON:API document at https://jsonapi.org/ can be consumed by a store defined in this way:
 
 ```ts
-import { definePiniaJsonApiStore, Model, ModelDefinition } from 'pinia-json-api'
+import { definePiniaJsonApiStore, Model, type ModelDefinition, RelationshipType } from 'pinia-json-api'
 
 export class Person extends Model {
   firstName?: string
@@ -41,8 +41,10 @@ const modelDefinitions: ModelDefinition[] = [
   {
     type: 'article',
     ctor: Article,
-    belongsTo: new Map([['author', Person]]),
-    hasMany: new Map([['comments', Comment]]),
+    rels: {
+      author: { ctor: Person, type: RelationshipType.BelongsTo },
+      comments: { ctor: Comment, type: RelationshipType.HasMany },
+    },
   },
 ]
 

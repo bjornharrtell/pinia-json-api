@@ -1,6 +1,6 @@
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from '../json-api'
 import type { JsonApiFetcher } from '../json-api-fetcher'
-import { Model, type ModelDefinition, definePiniaJsonApiStore } from '../pinia-json-api'
+import { Model, type ModelDefinition, RelationshipType, definePiniaJsonApiStore } from '../pinia-json-api'
 import doc from './articles.json'
 
 export class JsonApiFetcherArticles implements JsonApiFetcher {
@@ -68,6 +68,7 @@ export class Person extends Model {
 
 export class Comment extends Model {
   body?: string
+  author: Person | null = null
 }
 
 export class Article extends Model {
@@ -84,12 +85,17 @@ const modelDefinitions: ModelDefinition[] = [
   {
     type: 'comments',
     ctor: Comment,
+    rels: {
+      author: { ctor: Person, type: RelationshipType.BelongsTo },
+    },
   },
   {
     type: 'articles',
     ctor: Article,
-    belongsTo: new Map([['author', Person]]),
-    hasMany: new Map([['comments', Comment]]),
+    rels: {
+      author: { ctor: Person, type: RelationshipType.BelongsTo },
+      comments: { ctor: Comment, type: RelationshipType.HasMany },
+    },
   },
 ]
 
