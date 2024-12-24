@@ -4,7 +4,7 @@ export type {
   PiniaJsonApiStoreUseFunction,
   PiniaJsonApiStoreConfig,
   ModelDefinition,
-  Relationship
+  Relationship,
 } from './pinia-json-api'
 export type {
   JsonApiFetcher,

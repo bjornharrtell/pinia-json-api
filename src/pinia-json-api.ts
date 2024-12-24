@@ -3,6 +3,9 @@ import { type ComputedRef, type ShallowReactive, shallowReactive } from 'vue'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
 import { type FetchOptions, type FetchParams, type JsonApiFetcher, JsonApiFetcherImpl } from './json-api-fetcher'
 
+/**
+ * Base class for models
+ */
 export class Model {
   constructor(public id: string) {
     this.id = id
@@ -11,14 +14,36 @@ export class Model {
 }
 
 export interface ModelDefinition {
+  /**
+   * The JSON:API type for the model
+   */
   type: string
+  /**
+   * The model constructor
+   */
   ctor: typeof Model
+  /**
+   * Relationships for the model
+   */
   rels?: Record<string, Relationship>
 }
 
 export interface PiniaJsonApiStoreConfig {
+  /**
+   * The URL for the JSON:API endpoint
+   */
   endpoint: string
+  /**
+   * Model definitions for the store
+   */
   modelDefinitions: ModelDefinition[]
+  /**
+   * Whether to convert kebab-case names from JSON:API (older convention) to camelCase
+   */
+  kebabCase?: boolean
+  /**
+   * Optional state for the fetcher (e.g. for authentication)
+   */
   state?: ComputedRef<{ token: string }>
 }
 
@@ -27,6 +52,9 @@ export enum RelationshipType {
   BelongsTo = 1,
 }
 
+/**
+ * Relationship definition
+ */
 export interface Relationship {
   ctor: typeof Model
   type: RelationshipType
@@ -104,12 +132,18 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return internalCreateRecord(ctor, id, properties) as InstanceType<T>
   }
 
+  function camel(str: string) {
+    if (config.kebabCase) return str.replace(/[-][a-z\u00E0-\u00F6\u00F8-\u00FE]/g, (_, letter) => letter.toUpperCase())
+    return str
+  }
+
   function internalCreateRecord<T extends typeof Model>(ctor: T, id: string, properties?: Partial<InstanceType<T>>) {
     const type = getModelType(ctor)
     const recordMap = getRecords(type)
     let record = recordMap.get(id)
     if (!record) record = shallowReactive<InstanceType<T>>(new ctor(id) as InstanceType<T>)
-    if (properties) for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[key] = value
+    if (properties)
+      for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[camel(key)] = value
     recordMap.set(id, record)
     return record as InstanceType<T>
   }
@@ -169,8 +203,9 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
         const rels = relsRegistry.get(recordCtor)
         // NOTE: if relationship is not defined but exists in data, it is ignored
         if (!rels) continue
-        const rel = rels[name]
-        if (!rel) throw new Error(`Relationship ${name} not defined`)
+        const normalizedName = camel(name)
+        const rel = rels[normalizedName]
+        if (!rel) throw new Error(`Relationship ${normalizedName} not defined`)
         const relType = getModelType(rel.ctor)
         const relTypeRecords = recordsByType.get(relType)
         if (!relTypeRecords) continue
@@ -179,7 +214,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
             ? (reldoc.data as JsonApiResourceIdentifier[])
             : [reldoc.data as JsonApiResourceIdentifier]
         const relRecords = rids.filter((d) => relTypeRecords.has(d.id)).map((d) => getRecord(relTypeRecords, d.id))
-        record[name] = rel.type === RelationshipType.HasMany ? relRecords : relRecords[0]
+        record[normalizedName] = rel.type === RelationshipType.HasMany ? relRecords : relRecords[0]
       }
     }
     if (included) {
