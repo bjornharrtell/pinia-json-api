@@ -1,6 +1,6 @@
 {
   "name": "@bjornharrtell/pinia-json-api",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "type": "module",
   "main": "./dist/lib.js",
   "module": "./dist/lib.js",
