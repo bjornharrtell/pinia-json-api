@@ -22,3 +22,4 @@ export type {
   JsonApiLinkObject,
   JsonApiMeta,
 } from './json-api'
+export { camel } from './util'

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { type ComputedRef, type ShallowReactive, shallowReactive } from 'vue'
 import type { JsonApiDocument, JsonApiResource, JsonApiResourceIdentifier } from './json-api'
 import { type FetchOptions, type FetchParams, type JsonApiFetcher, JsonApiFetcherImpl } from './json-api-fetcher'
+import { camel } from './util'
 
 /**
  * Base class for models
@@ -132,8 +133,8 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return internalCreateRecord(ctor, id, properties) as InstanceType<T>
   }
 
-  function camel(str: string) {
-    if (config.kebabCase) return str.replace(/[-][a-z\u00E0-\u00F6\u00F8-\u00FE]/g, match => match.slice(1).toUpperCase())
+  function normalize(str: string) {
+    if (config.kebabCase) camel(str)
     return str
   }
 
@@ -143,7 +144,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     let record = recordMap.get(id)
     if (!record) record = shallowReactive<InstanceType<T>>(new ctor(id) as InstanceType<T>)
     if (properties)
-      for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[camel(key)] = value
+      for (const [key, value] of Object.entries(properties)) if (value !== undefined) record[normalize(key)] = value
     recordMap.set(id, record)
     return record as InstanceType<T>
   }
@@ -203,7 +204,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
         const rels = relsRegistry.get(recordCtor)
         // NOTE: if relationship is not defined but exists in data, it is ignored
         if (!rels) continue
-        const normalizedName = camel(name)
+        const normalizedName = normalize(name)
         const rel = rels[normalizedName]
         if (!rel) throw new Error(`Relationship ${normalizedName} not defined`)
         const relType = getModelType(rel.ctor)
