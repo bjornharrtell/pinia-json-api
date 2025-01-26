@@ -134,8 +134,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
   }
 
   function normalize(str: string) {
-    if (config.kebabCase) camel(str)
-    return str
+    return config.kebabCase ? camel(str) : str
   }
 
   function internalCreateRecord<T extends typeof Model>(ctor: T, id: string, properties?: Partial<InstanceType<T>>) {
