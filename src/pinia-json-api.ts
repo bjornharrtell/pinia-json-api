@@ -269,6 +269,16 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
     return doc
   }
 
+  async function saveRecord(record: Model) {
+    const type = getModelType(record.constructor as typeof Model)
+    const resource: JsonApiResource = {
+      id: record.id,
+      type,
+      attributes: record,
+    }
+    await _fetcher.post(resource)
+  }
+
   function unloadAll() {
     for (const records of recordsByType.values()) records.clear()
   }
@@ -282,6 +292,7 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
       findAll,
       findRecord,
       findRelated,
+      saveRecord,
       unloadAll,
     }
   }) as unknown as PiniaJsonApiStoreUseFunction

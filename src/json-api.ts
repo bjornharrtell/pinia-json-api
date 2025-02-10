@@ -11,7 +11,7 @@ export interface JsonApiResource {
   id: string
   type: string
   attributes: Record<string, unknown>
-  relationships: Record<string, JsonApiRelationship>
+  relationships?: Record<string, JsonApiRelationship>
 }
 
 export interface JsonApiMeta {
@@ -54,7 +54,16 @@ export interface JsonApiLinks {
 
 export interface JsonApiDocument {
   links?: JsonApiLinks
-  data: JsonApiResource | JsonApiResource[]
+  data?: JsonApiResource | JsonApiResource[]
+  errors?: JsonApiError[]
   included?: JsonApiResource[]
   meta?: JsonApiMeta
+}
+
+export interface JsonApiError {
+  id: string
+  status: string
+  code?: string
+  title: string
+  detail?: string
 }

@@ -14,6 +14,7 @@ export type {
 } from './json-api-fetcher'
 export type {
   JsonApiDocument,
+  JsonApiError,
   JsonApiResource,
   JsonApiResourceIdentifier,
   JsonApiRelationship,

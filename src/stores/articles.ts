@@ -34,6 +34,7 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
   async fetchHasMany(_type: string, id: string, name: string) {
     const article = this.articles.find((a) => a.id === id)
     if (!article) throw new Error(`Article ${id} not found`)
+    if (!article.relationships) throw new Error(`Relationships for article ${id} not found`)
     const relationship = article.relationships[name]
     const findIncluded = (rid: JsonApiResourceIdentifier) => {
       const resource = this.included.find((i) => i.id === rid.id)
@@ -48,6 +49,7 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     if (type !== 'article') throw new Error(`Type ${type} not supported`)
     const article = this.articles.find((a) => a.id === id)
     if (!article) throw new Error(`Article ${id} not found`)
+    if (!article.relationships) throw new Error(`Relationships for article ${id} not found`)
     const relationship = article.relationships[name]
     const findIncluded = (rid: JsonApiResourceIdentifier) => {
       const resource = this.included.find((i) => i.id === rid.id)
@@ -57,6 +59,9 @@ export class JsonApiFetcherArticles implements JsonApiFetcher {
     const rid = relationship.data as JsonApiResourceIdentifier
     const related = findIncluded(rid)
     return { data: related } as JsonApiDocument
+  }
+  async post(data: JsonApiResource): Promise<JsonApiDocument> {
+    throw new Error('Not implemented')
   }
 }
 
