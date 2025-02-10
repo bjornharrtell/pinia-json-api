@@ -1,4 +1,4 @@
-import ky, { HTTPError, type Options } from 'ky'
+import ky, { type Options } from 'ky'
 import type { ComputedRef } from 'vue'
 import type { JsonApiDocument, JsonApiResource } from './json-api'
 
@@ -43,20 +43,6 @@ export interface JsonApiFetcher {
   post(data: JsonApiResource): Promise<JsonApiDocument>
 }
 
-async function req(url: string, options: Options, method = 'get') {
-  const r = method === 'get' ? ky.get : ky.post
-  try {
-    const doc = await r(url, options).json<JsonApiDocument>()
-    return doc
-  } catch (e) {
-    if (e instanceof HTTPError) {
-      const doc = await e.response.json<JsonApiDocument>()
-      return doc
-    }
-    throw e
-  }
-}
-
 export class JsonApiFetcherImpl implements JsonApiFetcher {
   constructor(
     private endpoint: string,
@@ -81,29 +67,29 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     const segments = [this.endpoint, type]
     if (id) segments.push(id)
     const url = resolvePath(...segments)
-    const doc = await req(url, this.createOptions(options, params))
+    const doc = await ky.get(url, this.createOptions(options, params)).json<JsonApiDocument>()
     return doc
   }
   async fetchAll(type: string, options?: FetchOptions, params?: FetchParams) {
     const url = resolvePath(this.endpoint, type)
-    const doc = await req(url, this.createOptions(options, params))
+    const doc = await ky.get(url, this.createOptions(options, params)).json<JsonApiDocument>()
     const resources = doc.data as JsonApiResource[]
     return resources
   }
   async fetchOne(type: string, id: string, options?: FetchOptions, params?: FetchParams) {
     const url = resolvePath(this.endpoint, type, id)
-    const doc = await req(url, this.createOptions(options, params))
+    const doc = await ky.get(url, this.createOptions(options, params)).json<JsonApiDocument>()
     const resource = doc.data as JsonApiResource
     return resource
   }
   async fetchHasMany(type: string, id: string, name: string, options?: FetchOptions, params?: FetchParams) {
     const url = resolvePath(this.endpoint, type, id, name)
-    const doc = await req(url, this.createOptions(options, params))
+    const doc = await ky.get(url, this.createOptions(options, params)).json<JsonApiDocument>()
     return doc
   }
   async fetchBelongsTo(type: string, id: string, name: string, options?: FetchOptions, params?: FetchParams) {
     const url = resolvePath(this.endpoint, type, id, name)
-    const doc = await req(url, this.createOptions(options, params))
+    const doc = await ky.get(url, this.createOptions(options, params)).json<JsonApiDocument>()
     return doc
   }
   async post(resource: JsonApiResource) {
@@ -113,7 +99,7 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
       data: resource,
     }
     requestOptions.json = body
-    const doc = await req(url, requestOptions, 'post')
+    const doc = await ky.post(url, requestOptions).json<JsonApiDocument>()
     return doc
   }
 }
