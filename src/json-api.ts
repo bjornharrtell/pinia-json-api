@@ -66,4 +66,5 @@ export interface JsonApiError {
   code?: string
   title: string
   detail?: string
+  meta?: JsonApiMeta
 }
