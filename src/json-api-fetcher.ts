@@ -48,10 +48,12 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
     private endpoint: string,
     private state?: ComputedRef<{ token: string }>,
   ) {}
-  createOptions(options: FetchOptions = {}, params: FetchParams = {}): Options {
+  createOptions(options: FetchOptions = {}, params: FetchParams = {}, post = false): Options {
     const searchParams = new URLSearchParams()
     const headers = new Headers()
     headers.append('Accept', 'application/vnd.api+json')
+    if (post)
+      headers.append("Content-Type", "application/vnd.api+json");
     if (this.state) headers.append('Authorization', `Bearer ${this.state.value.token}`)
     const requestOptions = { searchParams, headers }
     if (options.fields)
@@ -94,7 +96,7 @@ export class JsonApiFetcherImpl implements JsonApiFetcher {
   }
   async post(resource: JsonApiResource) {
     const url = resolvePath(this.endpoint, resource.type)
-    const requestOptions = this.createOptions()
+    const requestOptions = this.createOptions({}, {}, true)
     const body: JsonApiDocument = {
       data: resource,
     }
