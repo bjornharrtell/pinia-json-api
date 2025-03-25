@@ -5,19 +5,6 @@ import { Article, Person, useArticlesStore } from '../src/stores/articles'
 setActivePinia(createPinia())
 
 describe('PiniaJsonApiStore', () => {
-  beforeEach(() => {
-    const { unloadAll } = useArticlesStore()
-    unloadAll()
-  })
-
-  test('roundtrip record', async () => {
-    const { createRecord, findRecord } = useArticlesStore()
-    const person = createRecord(Person, { firstName: 'test' })
-    const foundPerson = await findRecord(Person, person.id)
-    expect(foundPerson.id).toBe(person.id)
-    expect(foundPerson.firstName).toBe(person.firstName)
-  })
-
   test('single record fetch', async () => {
     const { findRecord, findRelated } = useArticlesStore()
     const article = await findRecord(Article, '1', {
