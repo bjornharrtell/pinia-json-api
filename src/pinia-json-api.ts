@@ -178,10 +178,10 @@ export function definePiniaJsonApiStore(name: string, config: PiniaJsonApiStoreC
             ? (reldoc.data as JsonApiResourceIdentifier[])
             : [reldoc.data as JsonApiResourceIdentifier]
         const relIncludedRecords = rids
-          .filter((d) => includedMap.has(d.id) && d.type === relType)
+          .filter((d) => d && includedMap.has(d.id) && d.type === relType)
           .map((d) => includedMap.get(d.id))
         const relRecords = rids
-          .filter((d) => recordsMap.has(d.id) && d.type === relType)
+          .filter((d) => d && recordsMap.has(d.id) && d.type === relType)
           .map((d) => recordsMap.get(d.id))
         relRecords.push(...relIncludedRecords)
         record[normalizedName] = rel.type === RelationshipType.HasMany ? relRecords : relRecords[0]
