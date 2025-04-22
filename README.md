@@ -1,3 +1,5 @@
+DEPRECATED: I've come to realise pinia and json-api should be separate concerns - replacement project is https://github.com/bjornharrtell/json-api.
+
 # pinia-json-api
 
 pinia-json-api extends Pinia Store with capabilities to fetch typed data models via an JSON:API endpoint into record instances.
